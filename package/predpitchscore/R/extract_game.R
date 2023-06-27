@@ -1,59 +1,79 @@
-
+#' Extract game
+#' 
+#' Extract event and pitch data from the MLB statsapi.
+#' 
+#' @param game_pk an integer primary key specifying the game to extract (character is okay)
+#' 
+#' @return a list of two dataframes: `event` and `pitch`
+#' 
 extract_game <- function(game_pk) {
 
-  raw_data <- baseballr::mlb_pbp(game_pk)
+  endpoint <- glue::glue("https://statsapi.mlb.com/api/v1.1/game/{game_pk}/feed/live")
 
-  data <- raw_data |>
-    dplyr::filter(type == "pitch") |>
-    dplyr::select(
+  data_json <- jsonlite::fromJSON(endpoint)
 
-      # Play identifiers ----
-      play_id = playId,
-      game_pk,
-      inning = about.inning,
-      half_inning = about.halfInning,
-      at_bat_index = about.atBatIndex,
-      pitch_number = pitchNumber,
+  # Extract event data ----
 
-      # Context ----
-      pitcher_id = matchup.pitcher.id,
-      pitch_hand = matchup.pitchHand.code,
-      batter_id = matchup.batter.id,
-      bat_side = matchup.batSide.code,
-      balls_start = count.balls.start,
-      strikes_start = count.strikes.start,
-      outs_start = count.outs.start,
-      balls_end = count.balls.end,
-      strikes_end = count.strikes.end,
-      outs_end = count.outs.end,
+  event_data <- data_json$liveData$plays$allPlays
 
-      # Pitch data ----
-      description = details.description,
-      pitch_type = details.type.code,
-      ax = pitchData.coordinates.aX,
-      ay = pitchData.coordinates.aY,
-      az = pitchData.coordinates.aZ,
-      vx0 = pitchData.coordinates.vX0,
-      vy0 = pitchData.coordinates.vY0,
-      vz0 = pitchData.coordinates.vZ0,
-      x0 = pitchData.coordinates.x0,
-      z0 = pitchData.coordinates.z0,
-      extension = pitchData.extension,
-      strike_zone_top = pitchData.strikeZoneTop,
-      strike_zone_bottom = pitchData.strikeZoneBottom,
+  base_out_state <- track_base_out_state(event_data)
 
-      # Hit data ----
-      event = result.event,
-      launch_speed = hitData.launchSpeed,
-      launch_angle = hitData.launchAngle,
-      hit_coord_x = hitData.coordinates.coordX,
-      hit_coord_y = hitData.coordinates.coordY,
-      # If no runner ever reaches a base in the game, the column for that base is missing
-      runner_1b_id = dplyr::matches("matchup.postOnFirst.id"),
-      runner_2b_id = dplyr::matches("matchup.postOnSecond.id"),
-      runner_3b_id = dplyr::matches("matchup.postOnThird.id")
-    ) |>
-    dplyr::arrange(at_bat_index, pitch_number)
+  event <- tibble::tibble(
+    game_id = game_pk,
+    event_index = event_data$about$atBatIndex,
+    inning = event_data$about$inning,
+    half_inning = event_data$about$halfInning,
+    batter_id = event_data$matchup$batter$id,
+    bat_side = event_data$matchup$batSide$code,
+    pitcher_id = event_data$matchup$pitcher$id,
+    pitch_hand = event_data$matchup$pitchHand$code,
+    event = event_data$result$event,
+    is_out = event_data$result$isOut,
+    runs_on_event = sapply(event_data$runners,
+      FUN = function(x) sum(dplyr::coalesce(x$movement$end, "") == "score")
+    )
+  ) |>
+    dplyr::left_join(base_out_state, by = "event_index")
 
-  return(data)
+
+  # Extract pitch data ----
+
+  pitch_data <- do.call(dplyr::bind_rows, args = event_data$playEvents)
+
+  pitch <- tibble::tibble(
+    game_id = game_pk,
+    event_index = rep(event_data$about$atBatIndex, times = sapply(event_data$playEvents, nrow)),
+    pitch_number = pitch_data$pitchNumber,
+    play_id = pitch_data$playId,
+    is_pitch = pitch_data$isPitch,
+    post_balls = pitch_data$count$balls,
+    post_strikes = pitch_data$count$strikes,
+    description = pitch_data$details$description,
+    pitch_type = pitch_data$details$type$code,
+    ax = pitch_data$pitchData$coordinates$aX,
+    ay = pitch_data$pitchData$coordinates$aY,
+    az = pitch_data$pitchData$coordinates$aZ,
+    vx0 = pitch_data$pitchData$coordinates$vX0,
+    vy0 = pitch_data$pitchData$coordinates$vY0,
+    vz0 = pitch_data$pitchData$coordinates$vZ0,
+    x0 = pitch_data$pitchData$coordinates$x0,
+    z0 = pitch_data$pitchData$coordinates$z0,
+    extension = pitch_data$pitchData$extension,
+    strike_zone_top = pitch_data$pitchData$strikeZoneTop,
+    strike_zone_bottom = pitch_data$pitchData$strikeZoneBottom,
+    launch_speed = pitch_data$hitData$launchSpeed,
+    launch_angle = pitch_data$hitData$launchAngle,
+    hit_coord_x = pitch_data$hitData$coordinates$coordX,
+    hit_coord_y = pitch_data$hitData$coordinates$coordY,
+  ) |>
+  dplyr::filter(is_pitch) |>
+  # We don't need this column once we've filtered on it
+  dplyr::select(-is_pitch)
+
+  return(
+    list(
+      event = event,
+      pitch = pitch
+    )
+  )
 }
