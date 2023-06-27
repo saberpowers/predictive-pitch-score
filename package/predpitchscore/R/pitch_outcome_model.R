@@ -88,7 +88,7 @@ train_pitch_outcome_model <- function(data) {
 #' @param verbose argument passed directly to `xgboost::xgboost`, defaults to silent
 #' @param ... additional parameters to pass to `xgboost::xgboost`
 #' 
-#' @return
+#' @return a fitted `xgboost::xgboost` model
 #' 
 train_pitch_outcome_xgb <- function(data_subset, features, verbose = 0, ...) {
 
