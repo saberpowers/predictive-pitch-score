@@ -127,12 +127,14 @@ track_base_out_state <- function(event_data) {
     # If a runner left a base in the middle of a PA, remove the ID from that base
     runners_from_base <- runners_movement_mid_event_start |>
       dplyr::filter(start_base == base)
-    pre_play_state[[id_string]][runners_from_base$event_index] <- NA
+    pre_play_state[[id_string]][1 + runners_from_base$event_index] <- NA
+    # NOTE: event_index is 0-indexed (hence the `1 +`)
 
     # If a runner reached a base in the middle of a PA, add the runner's ID to that base
     runners_to_base <- runners_movement_mid_event_end |>
       dplyr::filter(end_base == base)
-    pre_play_state[[id_string]][runners_to_base$event_index] <- runners_to_base$runner_id
+    pre_play_state[[id_string]][1 + runners_to_base$event_index] <- runners_to_base$runner_id
+    # NOTE: event_index is 0-indexed (hence the `1 +`)
   }
 
   # Step 4. Put it all together ----
