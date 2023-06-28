@@ -26,8 +26,8 @@ for (year in seq(from = opt$start_year, to = opt$end_year)) {
   }
 
   data <- predpitchscore::extract_season(year = year, cl = cluster)
-  write.csv(data$event, file = glue::glue("{opt$data_dir}/event/{year}.csv"))
-  write.csv(data$pitch, file = glue::glue("{opt$data_dir}/pitch/{year}.csv"))
+  write.csv(data$event, file = glue::glue("{opt$data_dir}/event/{year}.csv"), row.names = FALSE)
+  write.csv(data$pitch, file = glue::glue("{opt$data_dir}/pitch/{year}.csv"), row.names = FALSE)
 }
 
 if (opt$parallel) {

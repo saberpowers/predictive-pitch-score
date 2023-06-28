@@ -66,6 +66,13 @@ extract_game <- function(game_pk) {
     hit_coord_x = pitch_data$hitData$coordinates$coordX,
     hit_coord_y = pitch_data$hitData$coordinates$coordY,
   ) |>
+  # Get pre-pitch count
+  dplyr::group_by(game_id, event_index) |>
+  dplyr::mutate(
+    pre_balls = dplyr::coalesce(dplyr::lag(post_balls, 1), 0),
+    pre_strikes = dplyr::coalesce(dplyr::lag(post_strikes, 1), 0)
+  ) |>
+  dplyr::ungroup() |>
   dplyr::filter(is_pitch) |>
   # We don't need this column once we've filtered on it
   dplyr::select(-is_pitch)
