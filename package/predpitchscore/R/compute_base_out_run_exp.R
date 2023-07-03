@@ -7,6 +7,8 @@
 #' 
 #' @return a dataframe of `exp_runs` indexed by `runner_1b`, `runner_2b`, `runner_3b` and `out`
 #' 
+#' @export
+#' 
 compute_base_out_run_exp <- function(event) {
   
   base_out_transition <- event |>

@@ -56,8 +56,8 @@ train_hit_outcome_model <- function(pitch, event, base_out_run_exp) {
   model <- xgboost::xgboost(
     data = covariate_matrix,
     label = data$exp_runs_diff,
-    nrounds = 10, # temporarily set to 10 for testing (150 will be better)
-    params = list(eta = 0.05, gamma = 0.1, max_depth = 9, objective = "reg:squarederror"),
+    nrounds = config_hit_outcome_xgb$nrounds,
+    params = config_hit_outcome_xgb$params,
     verbose = 0
   )
 
@@ -65,3 +65,25 @@ train_hit_outcome_model <- function(pitch, event, base_out_run_exp) {
 
   return(model)
 }
+
+
+
+
+#' Configuration for hit outcome XGBoost model
+#' 
+#' Use this object to specify which values to use for each tuning parameter.
+#' We have a separate script for determining optimal parameters.
+#' 
+config_hit_outcome_xgb <- list(
+
+  nrounds = 2000,
+  params = list(
+    objective = "reg:squarederror",
+    eta = 0.01,
+    gamma = 0,
+    max_depth = 8,
+    min_child_weight = 400,
+    subsample = 0.65,
+    colsample_bytree = 0.7
+  )
+)
