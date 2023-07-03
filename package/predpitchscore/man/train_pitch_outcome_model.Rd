@@ -4,10 +4,10 @@
 \alias{train_pitch_outcome_model}
 \title{Train pitch outcome model}
 \usage{
-train_pitch_outcome_model(data)
+train_pitch_outcome_model(pitch)
 }
 \arguments{
-\item{data}{a dataframe of pitch data with which to train the pitch outcome model}
+\item{pitch}{dataframe of pitch data from \code{\link{extract_season}}}
 }
 \value{
 a fitted "pitch_outcome_model" object

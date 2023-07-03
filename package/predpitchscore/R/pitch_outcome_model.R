@@ -4,31 +4,32 @@
 #' given no swing; probability of strike given no swing and no hbp; probability of contact given
 #' swing; and probability of fair given contact.
 #' 
-#' @param data a dataframe of pitch data with which to train the pitch outcome model
+#' @param pitch dataframe of pitch data from \code{\link{extract_season}}
 #' 
 #' @return a fitted "pitch_outcome_model" object
 #' 
-train_pitch_outcome_model <- function(data) {
+train_pitch_outcome_model <- function(pitch) {
 
   # Establish xgboost parameters ----
   # TODO: These should be treated as config
 
-  features <- c("balls_start", "strikes_start", "plate_x", "plate_z",
+  features <- c("pre_balls", "pre_strikes", "plate_x", "plate_z",
     "plate_vx", "plate_vy", "plate_vz", "ax", "ay", "az", "extension"
   )
   xgb_nrounds <- 10 # temporarily set to 10 for testing (150 will be better)
   xgb_params <- list(eta = 0.05, gamma = 0.1, max_depth = 9, objective = "binary:logistic")
+  xgb_params_hit <- list(eta = 0.05, gamma = 0.1, max_depth = 9, objective = "reg:squarederror")
 
 
   # Wrangle training data ----
   
-  outcome_model_features <- data |>
+  outcome_model_features <- pitch |>
     get_quadratic_coef() |>
     get_outcome_model_features()
-  outcome_tree <- get_outcome_tree(data$description)
+  outcome_tree <- get_outcome_tree(pitch$description)
   
-  regression_data <- data |>
-    dplyr::select(balls_start, strikes_start) |>
+  regression_data <- pitch |>
+    dplyr::select(pre_balls, pre_strikes, hit_pred) |>
     dplyr::bind_cols(outcome_model_features, outcome_tree) |>
     dplyr::filter(!is.na(extension))
   
@@ -59,6 +60,11 @@ train_pitch_outcome_model <- function(data) {
     dplyr::mutate(label = is_fair) |>
     train_pitch_outcome_xgb(features = features, nrounds = xgb_nrounds, params = xgb_params)
 
+  model_hit <- regression_data |>
+    dplyr::filter(is_swing, is_contact, is_fair, !is.na(hit_pred)) |>
+    dplyr::mutate(label = hit_pred) |>
+    train_pitch_outcome_xgb(features = features, nrounds = xgb_nrounds, params = xgb_params_hit)
+
 
   # Combine models and return ----
   
@@ -67,7 +73,8 @@ train_pitch_outcome_model <- function(data) {
     hbp = model_hbp,
     strike = model_strike,
     contact = model_contact,
-    fair = model_fair
+    fair = model_fair,
+    hit = model_hit
   )
   
   class(model) <- "pitch_outcome_model"
