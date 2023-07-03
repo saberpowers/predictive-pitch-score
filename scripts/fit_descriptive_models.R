@@ -30,3 +30,9 @@ hit_outcome_model <- train_hit_outcome_model(
 pitch$hit_pred[!is.na(pitch$launch_speed)] <- hit_outcome_model$pred
 
 pitch_outcome_model <- train_pitch_outcome_model(pitch)
+
+
+# Save the models ----
+
+saveRDS(hit_outcome_model, file = "models/hit_outcome_model.rds")
+saveRDS(pitch_outcome_model, file = "models/pitch_outcome_model.rds")
