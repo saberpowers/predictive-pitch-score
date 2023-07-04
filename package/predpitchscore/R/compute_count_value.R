@@ -1,4 +1,4 @@
-#' Compute count linear weight
+#' Compute count value
 #' 
 #' Compute the average change in base-out run expectancy for all plate appearances that run
 #' through each count.
@@ -8,9 +8,9 @@
 #' @param base_out_run_exp dataframe of base-out run expectancy from
 #'   \code{\link{compute_base_out_run_exp}}
 #' 
-#' @return a dataframe of `linear_weight` indexed by `balls` and `strikes`
+#' @return a dataframe of `count_value` indexed by `balls` and `strikes`
 #' 
-compute_count_linear_weight <- function(pitch, event, base_out_run_exp) {
+compute_count_value <- function(pitch, event, base_out_run_exp) {
 
   data <- pitch |>
     dplyr::filter(pre_balls < 4, pre_strikes < 3) |>    # this can happen in the data
@@ -39,40 +39,46 @@ compute_count_linear_weight <- function(pitch, event, base_out_run_exp) {
     dplyr::rename(post_exp_runs = exp_runs)
 
   # Compute average change in run expectancy by count
-  nonterminal_linear_weight <- data |>
+  nonterminal_value <- data |>
     dplyr::group_by(balls = pre_balls, strikes = pre_strikes) |>
     dplyr::summarize(
-      linear_weight = mean(runs_on_event + post_exp_runs - pre_event_exp_runs),
+      count_value = mean(runs_on_event + post_exp_runs - pre_event_exp_runs),
       .groups = "drop"
     )
 
-  walk_linear_weight <- data |>
+  walk_value <- data |>
     dplyr::filter(post_balls == 4) |>
+    # The average change in run expectancy on a walk is slightly different based on strikes,
+    # but for our purposes we want to treat each walk the same regardless of strikes
+    # (while still maintaining a row for each number of strikes).
     dplyr::group_by(balls = post_balls, strikes = post_strikes) |>
     dplyr::summarize(
       n = dplyr::n(),
-      linear_weight = mean(runs_on_event + post_exp_runs - pre_event_exp_runs),
+      count_value = mean(runs_on_event + post_exp_runs - pre_event_exp_runs),
       .groups = "drop"
     ) |>
-    dplyr::mutate(linear_weight = weighted.mean(linear_weight, w = n)) |>
-    dplyr::select(balls, strikes, linear_weight)
+    dplyr::mutate(count_value = weighted.mean(count_value, w = n)) |>
+    dplyr::select(balls, strikes, count_value)
 
-  strikeout_linear_weight <- data |>
+  strikeout_value <- data |>
     dplyr::filter(post_strikes == 3) |>
+    # The average change in run expectancy on a strikeout is slightly different based on balls,
+    # but for our purposes we want to treat each strikeout the same regardless of balls.
+    # (while still maintaining a row for each number of balls).
     dplyr::group_by(balls = post_balls, strikes = post_strikes) |>
     dplyr::summarize(
       n = dplyr::n(),
-      linear_weight = mean(runs_on_event + post_exp_runs - pre_event_exp_runs),
+      count_value = mean(runs_on_event + post_exp_runs - pre_event_exp_runs),
       .groups = "drop"
     ) |>
-    dplyr::mutate(linear_weight = weighted.mean(linear_weight, w = n)) |>
-    dplyr::select(balls, strikes, linear_weight)
+    dplyr::mutate(count_value = weighted.mean(count_value, w = n)) |>
+    dplyr::select(balls, strikes, count_value)
 
-  count_linear_weight <- dplyr::bind_rows(
-    nonterminal_linear_weight,
-    walk_linear_weight,
-    strikeout_linear_weight
+  count_value <- dplyr::bind_rows(
+    nonterminal_value,
+    walk_value,
+    strikeout_value
   )
   
-  return(count_linear_weight)
+  return(count_value)
 }

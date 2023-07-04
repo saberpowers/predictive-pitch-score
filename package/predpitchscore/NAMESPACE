@@ -2,6 +2,8 @@
 
 S3method(predict,pitch_outcome_model)
 export(compute_base_out_run_exp)
+export(compute_pitch_value)
 export(extract_season)
+export(plot_2d_function)
 export(train_hit_outcome_model)
 export(train_pitch_outcome_model)
