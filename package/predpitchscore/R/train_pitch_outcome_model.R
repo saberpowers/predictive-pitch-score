@@ -5,12 +5,14 @@
 #' swing; and probability of fair given contact.
 #' 
 #' @param pitch dataframe of pitch data from \code{\link{extract_season}}
+#' @param count_value dataframe of count_value from \code{\link{compute_count_value}},
+#'   not used but stashed in the model object for pitch value prediction
 #' 
 #' @return a fitted "pitch_outcome_model" object
 #' 
 #' @export
 #' 
-train_pitch_outcome_model <- function(pitch) {
+train_pitch_outcome_model <- function(pitch, count_value) {
 
   # Wrangle training data ----
   
@@ -68,7 +70,7 @@ train_pitch_outcome_model <- function(pitch) {
     hit = xgb_hit
   )
 
-  model <- list(xgb = xgb, features = config_pitch_outcome_xgb$features)
+  model <- list(xgb = xgb, count_value = count_value, features = config_pitch_outcome_xgb$features)
   
   class(model) <- "pitch_outcome_model"
 
@@ -166,19 +168,30 @@ predict.pitch_outcome_model <- function(object, newpitch, ...) {
     get_outcome_model_features()
 
   newdata <- newpitch |>
-    dplyr::select(pre_balls, pre_strikes, hit_pred) |>    # make sure we don't duplicate columns
+    dplyr::select(pre_balls, pre_strikes) |>    # make sure we don't duplicate columns
     dplyr::bind_cols(outcome_model_features) |>
     dplyr::select(dplyr::all_of(object$features)) |>
     as.matrix()
 
-  pred <- tibble::tibble(
-    swing = predict(object$xgb$swing, newdata = newdata),
-    hbp = predict(object$xgb$hbp, newdata = newdata),
-    strike = predict(object$xgb$strike, newdata = newdata),
-    contact = predict(object$xgb$contact, newdata = newdata),
-    fair = predict(object$xgb$fair, newdata = newdata),
-    hit = predict(object$xgb$hit, newdata = newdata)
+  pitch_pred <- tibble::tibble(
+    pre_balls = newpitch$pre_balls,
+    pre_strikes = newpitch$pre_strikes,
+    prob_swing = predict(object$xgb$swing, newdata = newdata),
+    prob_hbp = predict(object$xgb$hbp, newdata = newdata),
+    prob_strike = predict(object$xgb$strike, newdata = newdata),
+    prob_contact = predict(object$xgb$contact, newdata = newdata),
+    prob_fair = predict(object$xgb$fair, newdata = newdata),
+    pred_hit = predict(object$xgb$hit, newdata = newdata)
   )
+
+  pitch_value <- compute_pitch_value(pitch_pred = pitch_pred, count_value = object$count_value)
+
+  pred <- dplyr::bind_cols(pitch_pred, pitch_value) |>
+    dplyr::select(
+      dplyr::starts_with("prob"),
+      dplyr::starts_with("pred"),
+      dplyr::starts_with("pitch_value")
+    )
 
   return(pred)
 }

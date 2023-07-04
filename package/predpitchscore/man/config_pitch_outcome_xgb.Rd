@@ -11,6 +11,7 @@ An object of class \code{list} of length 13.
 config_pitch_outcome_xgb
 }
 \description{
-Configuration for pitch outcome XGBoost models
+Use this object to specify which features to include in the pitch outcome model and which values
+to use for each tuning parameter. We have a separate script for determining optimal parameters.
 }
 \keyword{datasets}
