@@ -1,4 +1,7 @@
-
+#' Estimate pitch distribution model via MAP parameters
+#' 
+#' @export
+#' 
 optimize_pitch_posterior <- function(pitch, event, pt) {
 
   fastballs <- pitch |>
