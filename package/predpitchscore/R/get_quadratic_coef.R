@@ -10,6 +10,8 @@
 #' 
 #' @return a dataframe with the following columns: ax, ay, az, bx, by, bz, cx, cy, cz
 #' 
+#' @export
+#' 
 get_quadratic_coef <- function(data) {
 
   quadratic_coef <- data |>
