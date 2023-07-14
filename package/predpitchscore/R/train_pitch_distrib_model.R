@@ -1,73 +1,135 @@
 #' Estimate pitch distribution model via MAP parameters
 #' 
+#' We use cmdstanr to estimate MAP parameters for a hierarchical Bayesian model for pitch
+#' characteristic means, standard deviations, and covariance matrices.
+#' 
+#' @param pitch dataframe of pitch data from \code{\link{extract_season}}
+#' @param event dataframe of event data from \code{\link{extract_season}}
+#' @param pt character, abbreviated pitch type for which to fit model
+#' @param pitch_char_vec character vector of pitch characteristics to model
+#' 
+#' @return a fitted "pitch_distrib_model" object
+#' 
 #' @export
 #' 
-optimize_pitch_posterior <- function(pitch, event, pt) {
+train_pitch_distrib_model <- function(pitch,
+                                      event,
+                                      pt = c("FF", "SI", "SL", "CU", "KC", "CH", "FS", "RC"),
+                                      pitch_char_vec = c(
+                                       "ax", "bx", "cx", "ay", "by", "cy", "az", "bz", "cz"
+                                      )) {
 
-  fastballs <- pitch |>
+  data <- pitch |>
     dplyr::left_join(event, by = c("year", "game_id", "event_index")) |>
-    dplyr::filter(
-      pitch_type == pt,
-      !is.na(extension),
-      sqrt(vx0^2 + vy0^2 + vz0^2) >= 70
+    dplyr::filter(pitch_type == pt, !is.na(extension), sqrt(vx0^2 + vy0^2 + vz0^2) >= 70) |>
+    # Filter down to pitchers with at least 100 pitches
+    dplyr::group_by(year, pitcher_id) |>
+    dplyr::filter(dplyr::n() >= 100) |>
+    dplyr::ungroup() |>
+    # Get necessary pitch characteristics and context variables
+    get_quadratic_coef() |>
+    dplyr::mutate(
+      pitcher_num = match(pitcher_id, sort(unique(pitcher_id))),  # stan needs pitchers numbered 1:n
+      # Flip x-coordinate for LHP
+      ax = ifelse(pitch_hand == "L", -1, 1) * ax,
+      bx = ifelse(pitch_hand == "L", -1, 1) * bx,
+      cx = ifelse(pitch_hand == "L", -1, 1) * cx,
+      same_hand = as.numeric(pitch_hand == bat_side),
+      bsh_num = same_hand * 12 + pre_balls * 3 + pre_strikes + 1
     )
   
-  player_season_data <- fastballs |>
-    dplyr::count(year, pitcher_id)
-
-  data <- fastballs |>
-    dplyr::select(-ax, -ay, -az) |>   # avoid duplication of column names
-    dplyr::bind_cols(get_quadratic_coef(fastballs)) |>
-    dplyr::left_join(player_season_data, by = c("year", "pitcher_id")) |>
-    dplyr::filter(n >= 100) |>
-    dplyr::mutate(
-      # Flip data for LHP
-      ax = ax - 2 * ax * (pitch_hand == "L"),
-      bx = bx - 2 * bx * (pitch_hand == "L"),
-      cx = cx - 2 * cx * (pitch_hand == "L"),
-      same_hand = as.numeric(pitch_hand == bat_side),
-      bsh_num = same_hand * 12 + pre_balls * 3 + pre_strikes + 1,
-      # Standardize all quadratic coefficients and sz top/bot
+  pitcher_hand <- data |>
+    dplyr::group_by(pitcher_id) |>
+    dplyr::summarize(pitch_hand = ifelse(mean(pitch_hand == "L") > 0.5, "L", "R"))
+  
+  # Before standardizing pitch trajectory and context variables, calculate league means and SDs
+  league_params <- data |>
+    dplyr::summarize(
       dplyr::across(
-        .cols = c(ax, bx, cx, ay, by, cy, az, bz, cz, strike_zone_top, strike_zone_bottom),
+        .cols = dplyr::all_of(
+          c(pitch_char_vec,
+            "pre_balls", "pre_strikes", "same_hand", "strike_zone_top", "strike_zone_bottom"
+          )
+        ),
+        .fns = list(mean = mean, sd = sd)
+      )
+    )
+  
+  # Standardize pitch trajectory and context variables
+  data_standardized <- data |>
+    dplyr::mutate(
+      dplyr::across(
+        .cols = dplyr::all_of(c(pitch_char_vec, "strike_zone_top", "strike_zone_bottom")),
         .fns = ~ (. - mean(.)) / sd(.)
+      ),
+      dplyr::across(
+        .cols = c(pre_balls, pre_strikes, same_hand),
+        .fns = ~ . - mean(.)
       )
     )
 
+  pitch_trajectory_coefficients <- data_standardized |>
+    dplyr::select(dplyr::all_of(pitch_char_vec))
 
-  # Get data ready for stan ----
-
-  pitcher_num <- data.frame(
-    pitcher_id = unique(data$pitcher_id),
-    pitcher_num = seq(1, length(unique(data$pitcher_id)))
-  )
-
-  merged_data <- data |>
-    dplyr::left_join(pitcher_num, by = "pitcher_id")
-
-  bsh_weights <- merged_data |>
+  bsh_weights <- data_standardized |>
     dplyr::count(bsh_num) |>
     dplyr::mutate(weight = n / sum(n))
 
-  stan_data <- with(merged_data,
+  stan_data <- with(data_standardized,
     list(
-      n = nrow(merged_data),
+      n = nrow(data_standardized),
       s = max(pitcher_num),
       c = 9,
-      v = merged_data |>
-        dplyr::select(ax, bx, cx, ay, by, cy, az, bz, cz),
+      v = pitch_trajectory_coefficients,
       sz_top = strike_zone_top,
       sz_bottom = strike_zone_bottom,
-      balls = pre_balls - mean(pre_balls),
-      strikes = pre_strikes - mean(pre_strikes),
-      hand = same_hand - mean(same_hand),
+      balls = pre_balls,
+      strikes = pre_strikes,
+      hand = same_hand,
       bsh = bsh_num,
       p = pitcher_num,
       bsh_weights = bsh_weights$weight
     )
   )
+ 
+  model <- cmdstanr::cmdstan_model(
+    stan_file = system.file("stan", "pitch_distrib_model.stan", package = "predpitchscore")
+  )
+  
+  cmdstan_fit <- model$optimize(
+    data = stan_data,
+    seed = 123,
+    iter = 15000,
+    algorithm = "lbfgs",
+    tol_rel_grad = 1e+3,
+    tol_param = 1e-9,
+    init = initialize_pitch_posterior()
+  )
 
-  inits <- merged_data |>
+  model <- list(
+    cmdstan_fit = cmdstan_fit,
+    pitch_char_vec = pitch_char_vec,
+    pitcher_hand = pitcher_hand,
+    league_params = league_params
+  )
+
+  class(model) <- "pitch_distrib_model"
+
+  return(model)
+}
+
+
+
+
+#' Set initial parameter values for pitch distribution model
+#' 
+#' @param data a dataframe of pitch characteristics and context variables
+#' 
+#' @return a list of initial values to pass directly to cmdstanr::cmdstan_model
+#' 
+initialize_pitch_distrib_model <- function(data) {
+
+  inits <- data |>
     dplyr::group_by(pitcher_num) |>
     dplyr::summarize(
       dplyr::across(
@@ -82,7 +144,7 @@ optimize_pitch_posterior <- function(pitch, event, pt) {
 
   ballast_2 <- 2 * colMeans(as.matrix(inits[,11:19])^2) / (colMeans(as.matrix(inits[, 11:19])^2) - var_prior)
 
-  inits_1.5 <- merged_data |>
+  inits_1.5 <- data |>
     dplyr::group_by(pitcher_num) |>
     dplyr::summarize(
       ax_mean = sum(ax) / (dplyr::n() + ballast[1]), #Was struggling at getting the batter stuff to work well. Took it out for now
@@ -105,7 +167,7 @@ optimize_pitch_posterior <- function(pitch, event, pt) {
       cz_sd = ((var(cz) * dplyr::n() + var_prior[9] * ballast_2[9]) / (dplyr::n() + ballast_2[9]))^0.5
     )
 
-  inits_2 <- merged_data |>
+  inits_2 <- data |>
     dplyr::group_by(bsh_num) |>
     dplyr::summarize(
       ax_mean = mean(ax),
@@ -128,7 +190,7 @@ optimize_pitch_posterior <- function(pitch, event, pt) {
       cz_sd = tidyr::replace_na(sd(cz), 1)
     )
 
-  inits_5 <- merged_data |>
+  inits_5 <- data |>
     dplyr::group_by(pitcher_num) |>
     dplyr::summarize(
       axnu = cov(ax, pre_balls) / (0.001 + var(pre_balls)),
@@ -162,7 +224,7 @@ optimize_pitch_posterior <- function(pitch, event, pt) {
 
   inits_5 <- inits_5 - rep(colMeans(inits_5), each = stan_data$s)
 
-  z_score_init <- merged_data |>
+  z_score_init <- data |>
     dplyr::select(pitcher_num, ax, bx, cx, ay, by, cy, cz, az, bz, cz) |>
     dplyr::left_join(inits_1.5, by = "pitcher_num") |>
     dplyr::transmute(
@@ -184,7 +246,7 @@ optimize_pitch_posterior <- function(pitch, event, pt) {
 
   for(i in 1:stan_data$s) {
 
-    player_data <- merged_data |>
+    player_data <- data |>
       dplyr::filter(pitcher_num == i)
     player_corr <- player_data |>
       dplyr::select(ax, bx, cx, ay, by, cy, az, bz, cz) |>
@@ -198,54 +260,47 @@ optimize_pitch_posterior <- function(pitch, event, pt) {
   
   mod <- cmdstanr::cmdstan_model(file.path("inst", "stan", "distribution_model.stan"))
   
-  fit_optim <- mod$optimize(
-    data = stan_data,
-    seed = 123,
-    iter = 15000,
-    algorithm = "lbfgs",
-    tol_rel_grad = 1e+3,
-    tol_param = 1e-9,
-    init = list(
-      list(
-        gamma = inits |>
-          dplyr::select(dplyr::ends_with("_mean")) |>
-          apply(2, sd),
-        epsilon = inits |>
-          dplyr::select(dplyr::ends_with("_sd")) |>
-          apply(2, mean) *
-          0.98,
-        tau = inits |>
-          dplyr::select(dplyr::ends_with("_mean")) |>
-          apply(2, mean) *
-          0.97,
-        eta = inits |>
-          dplyr::select(dplyr::ends_with("_sd")) |>
-          apply(2, sd) *
-          0.86,
-        sigma = inits_1.5 |>
-          dplyr::select(dplyr::ends_with("_sd")) *
-          0.95,
-        mu = inits_1.5 |>
-          dplyr::select(dplyr::ends_with("_mean")),
-        leagueRho = t(chol(cor(z_score_init))),
-        Rho = Rho_init,
-        lambdanorm = inits_2 |>
-          dplyr::select(dplyr::ends_with("_mean")) |>
-          dplyr::slice(2:24) *
-          0.82 /
-          0.2,
-        zetanorm = inits_2 |>
-          dplyr::select(dplyr::ends_with("_sd")) |>
-          dplyr::slice(2:24) /
-          0.1 -
-          10,
-        theta = rep(0, stan_data$c),
-        kappa = rep(0, stan_data$c),
-        nunorm = 0.5 * inits_5[2:stan_data$s, 2:10] / 0.05,
-        xinorm = 0.5 * inits_5[2:stan_data$s, 11:19] / 0.05,
-        pinorm = 0.6 * inits_5[2:stan_data$s, 20:28] / 0.1
-      )
+  init <- list(
+    list(
+      gamma = inits |>
+        dplyr::select(dplyr::ends_with("_mean")) |>
+        apply(2, sd),
+      epsilon = inits |>
+        dplyr::select(dplyr::ends_with("_sd")) |>
+        apply(2, mean) *
+        0.98,
+      tau = inits |>
+        dplyr::select(dplyr::ends_with("_mean")) |>
+        apply(2, mean) *
+        0.97,
+      eta = inits |>
+        dplyr::select(dplyr::ends_with("_sd")) |>
+        apply(2, sd) *
+        0.86,
+      sigma = inits_1.5 |>
+        dplyr::select(dplyr::ends_with("_sd")) *
+        0.95,
+      mu = inits_1.5 |>
+        dplyr::select(dplyr::ends_with("_mean")),
+      leagueRho = t(chol(cor(z_score_init))),
+      Rho = Rho_init,
+      lambdanorm = inits_2 |>
+        dplyr::select(dplyr::ends_with("_mean")) |>
+        dplyr::slice(2:24) *
+        0.82 /
+        0.2,
+      zetanorm = inits_2 |>
+        dplyr::select(dplyr::ends_with("_sd")) |>
+        dplyr::slice(2:24) /
+        0.1 -
+        10,
+      theta = rep(0, stan_data$c),
+      kappa = rep(0, stan_data$c),
+      nunorm = 0.5 * inits_5[2:stan_data$s, 2:10] / 0.05,
+      xinorm = 0.5 * inits_5[2:stan_data$s, 11:19] / 0.05,
+      pinorm = 0.6 * inits_5[2:stan_data$s, 20:28] / 0.1
     )
   )
 
+  return(init)
 }
