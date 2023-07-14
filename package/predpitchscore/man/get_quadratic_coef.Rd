@@ -10,7 +10,7 @@ get_quadratic_coef(data)
 \item{data}{a dataframe with the following columns: ax, ay, az, vx0, vy0, vz0, x0, z0, extension}
 }
 \value{
-a dataframe with the following columns: ax, ay, az, bx, by, bz, cx, cy, cz
+the input dataframe the following columns added: cy, y0, t0, bx, by, bz, cx, cz
 }
 \description{
 Find coefficients such that the path of the ball through time is given by:
