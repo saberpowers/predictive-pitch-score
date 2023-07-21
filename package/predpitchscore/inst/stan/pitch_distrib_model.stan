@@ -97,4 +97,8 @@ model {
     Rho[i] ~ lkj_corr_cholesky(1);
   }
   leagueRho ~ lkj_corr_cholesky(1);
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> main
