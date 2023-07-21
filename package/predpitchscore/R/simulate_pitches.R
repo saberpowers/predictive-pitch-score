@@ -8,13 +8,13 @@
 #' @param pitcher_id integer, ID of pitcher to simulate (must be length-1)
 #' @param n integer, number of pitches to simulate
 #' @param context a dataframe with the following columns:
-#'   `bsh_num`, `bat_side`, `pre_balls`, `pre_strikes`, `strike_zone_top`, `strike_zone_bottom`
+#'   `bat_side`, `pre_balls`, `pre_strikes`, `strike_zone_top`, `strike_zone_bottom`
 #' 
 #' @return a dataframe of simulated pitch characteristics
 #' 
 #' @export
 #' 
-sim_pitches <- function(pitch_distribution_model, pitcher_id, n, context) {
+simulate_pitches <- function(model, pitcher_id, n, context) {
 
   # Unpack pitch distribution model ----
 
@@ -58,6 +58,15 @@ sim_pitches <- function(pitch_distribution_model, pitcher_id, n, context) {
   )
   rho <- all_rho[which(model$pitcher_hand$pitcher_id == pitcher_id), , ]
 
+  pitch_char_params <- league_params |>
+    tidyr::pivot_longer(cols = dplyr::everything()) |>
+    # Filter down to mean and sd for pitch characteristics
+    dplyr::filter(substring(name, 1, 2) %in% pitch_char_vec) |>
+    tidyr::separate(name, into = c("pitch_char", "param")) |>
+    tidyr::pivot_wider(names_from = param) |>
+    # Rename these mean and SD columns to distinguish from player means and SDs
+    dplyr::rename(league_mean = mean, league_sd = sd)
+
 
   # Simulate pitches ----
 
@@ -82,12 +91,16 @@ sim_pitches <- function(pitch_distribution_model, pitcher_id, n, context) {
       pitch_char = rep(pitch_char_vec, each = n),
       z_score = c(simmed_z_scores)
     ) |>
-    dplyr::left_join(pitcher_hand, by = "pitcher_id") |>
+    dplyr::left_join(model$pitcher_hand, by = "pitcher_id") |>
+    dplyr::mutate(
+      same_hand = as.numeric(pitch_hand == bat_side),
+      bsh_num = same_hand * 12 + pre_balls * 3 + pre_strikes + 1
+    ) |>
     dplyr::left_join(pitcher_coef, by = c("pitcher_id", "pitch_char")) |>
     dplyr::left_join(count_coef, by = c("bsh_num", "pitch_char")) |>
     dplyr::left_join(general_coef, by = "pitch_char") |>
+    dplyr::left_join(pitch_char_params, by = "pitch_char") |>
     dplyr::mutate(
-      same_hand = as.numeric(pitch_hand == bat_side),
       mean = mu +                                               # pitcher intercept
         pi * (same_hand - league_params$same_hand_mean) +       # pitcher slope for same_hand
         nu * (pre_balls - league_params$pre_balls_mean) +       # pitcher slope for pre_balls
@@ -97,15 +110,16 @@ sim_pitches <- function(pitch_distribution_model, pitcher_id, n, context) {
         kappa * (strike_zone_bottom - league_params$strike_zone_bottom_mean) / league_params$strike_zone_bottom_sd,   # slope for strike_zone_bottom
       sd = sigma * zeta   # pitcher effect x count effect
     ) |>
-    dplyr::mutate(value = mean + sd * z_score) |>
-    dplyr::select(sim_num, pitch_char, value) |>
-    tidyr::pivot_wider(names_from = pitch_char, values_from = value) |>
-    # Reverse x-coordinate flipping for LHP
     dplyr::mutate(
-      ax = ifelse(pitch_hand == "L", -1, 1) * ax,
-      bx = ifelse(pitch_hand == "L", -1, 1) * bx,
-      cx = ifelse(pitch_hand == "L", -1, 1) * cx
-    )
+      # First apply the player-specific mean and SD to get a player-specific z-score
+      player_z_score = mean + sd * z_score,
+      # Then convert that player-specific z-score to an actual number using league mean and SD
+      value = league_mean + league_sd * player_z_score,
+      # Reverse x-coordinate flipping for LHP
+      value = ifelse(pitch_hand == "L" & pitch_char %in% c("ax", "bx", "cx"), -1, 1) * value
+    ) |>
+    dplyr::select(sim_num, bat_side, pre_balls, pre_strikes, pitch_char, value) |>
+    tidyr::pivot_wider(names_from = pitch_char, values_from = value)
 
   return(simmed_pitch)
 }

@@ -23,12 +23,12 @@ get_quadratic_coef <- function(data) {
       # Calculate time from y0 to release point, and then negate that time
       t0 = -(-vy0 - sqrt(vy0^2 - 4 * (ay / 2) * (y0 - cy))) / (2 * (ay / 2)),
       # Backtrack velocities by t0 time
-      bx = vx0 - t0 * ax,
-      by = vy0 - t0 * ay,
-      bz = vz0 - t0 * az,
+      bx = vx0 + (-t0) * ax,
+      by = vy0 + (-t0) * ay,
+      bz = vz0 + (-t0) * az,
       # Backtrack locations by t0 time
-      cx = x0 - t0 * vx0 + t0^2 * ax / 2,
-      cz = z0 - t0 * vz0 + t0^2 * az / 2
+      cx = x0 + (-t0) * vx0 + (-t0)^2 * ax / 2,
+      cz = z0 + (-t0) * vz0 + (-t0)^2 * az / 2
     )
 
   return(quadratic_coef)

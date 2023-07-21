@@ -4,10 +4,19 @@
 \alias{initialize_pitch_distrib_model}
 \title{Set initial parameter values for pitch distribution model}
 \usage{
+<<<<<<< HEAD
+initialize_pitch_distrib_model(data_standardized, pitch_char_vec)
+}
+\arguments{
+\item{data_standardized}{a dataframe of standardized pitch characteristics and context variables}
+
+\item{pitch_char_vec}{character vector of pitch characteristics to model}
+=======
 initialize_pitch_distrib_model(data)
 }
 \arguments{
 \item{data}{a dataframe of pitch characteristics and context variables}
+>>>>>>> main
 }
 \value{
 a list of initial values to pass directly to cmdstanr::cmdstan_model

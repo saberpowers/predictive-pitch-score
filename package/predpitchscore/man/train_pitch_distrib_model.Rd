@@ -7,8 +7,9 @@
 train_pitch_distrib_model(
   pitch,
   event,
-  pt = c("FF", "SI", "SL", "CU", "KC", "CH", "FS"),
-  pitch_char_vec = c("ax", "bx", "cx", "ay", "by", "cy", "az", "bz", "cz")
+  pt = c("FF", "SI", "FC", "SL", "CU", "KC", "CH", "FS"),
+  pitch_char_vec = c("ax", "bx", "cx", "ay", "by", "cy", "az", "bz", "cz"),
+  ...
 )
 }
 \arguments{
@@ -19,6 +20,8 @@ train_pitch_distrib_model(
 \item{pt}{character, abbreviated pitch type for which to fit model}
 
 \item{pitch_char_vec}{character vector of pitch characteristics to model}
+
+\item{...}{additional arguments for for cmdstanr optimize method}
 }
 \value{
 a fitted "pitch_distrib_model" object
