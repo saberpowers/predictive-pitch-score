@@ -10,8 +10,10 @@ get_trackman_metrics(data)
 \item{data}{dataframe with the following columns: ax, ay, az, bx, by, bz, cx, cy, cz}
 }
 \value{
-a dataframe with the following columns:
-release_x, release_y, release_z, plate_x, plate_z, horz_break, vert_break, induced_vert_break
+the input dataframe the following columns added:
+release_x, release_y, release_z, plate_x, plate_z, horz_break, vert_break, induced_vert_break,
+vx0, vy0, vz0, x0, y0, extension,
+plate_y, plate_time, gravity, plate_x_line, plate_z_line, plate_z_gravity, t0
 }
 \description{
 Use the quadratic coefficients describing the path of the pitch to calculate TrackMan metrics

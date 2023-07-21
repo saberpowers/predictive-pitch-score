@@ -14,7 +14,7 @@
 #' 
 #' @export
 #' 
-sim_pitches <- function(model, pitcher_id, n, context) {
+simulate_pitches <- function(model, pitcher_id, n, context) {
 
   # Unpack pitch distribution model ----
 
