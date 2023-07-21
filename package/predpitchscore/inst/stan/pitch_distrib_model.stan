@@ -8,8 +8,8 @@ data {
   vector[n] balls;
   vector[n] strikes;
   vector[n] hand;
-  int bsh[n]; //context vector
-  int p[n]; //Player Season id vector
+  array[n] int bsh; //context vector
+  array[n] int p; //Player Season id vector
   row_vector[24] bsh_weights; //context weights
 }
 
@@ -23,7 +23,7 @@ parameters {
   vector[c] tau; //centrality prior
   matrix[s,c] mu; //centrality coefficients
   cholesky_factor_corr[c] leagueRho; // prior correlation
-  cholesky_factor_corr[c] Rho[s]; // player correlation
+  array[s] cholesky_factor_corr[c] Rho; // player correlation
   vector[c] theta; //sz_top
   vector[c] kappa; //sz_bottom
   matrix[s-1,c] nunorm; //ball coefficients
@@ -40,7 +40,7 @@ transformed parameters {
   lambda[2:24,1:c]=lambdanorm*0.2;
   zeta[2:24,1:c]=zetanorm*0.1+1;
   lambda[1,1:c]=-(bsh_weights[2:24] * lambda[2:24,1:c])/bsh_weights[1]; //Honestly not certain how necessary this is but like having it
-  zeta[1,1:c]=1+-(bsh_weights[2:24] * (zeta[2:24,1:c]-1))/bsh_weights[1];
+  zeta[1,1:c]=(1 - bsh_weights[2:24] * zeta[2:24,1:c]) / bsh_weights[1];
   nu[2:s,1:c]=nunorm*0.05;
   xi[2:s,1:c]=xinorm*0.05;
   pivar[2:s,1:c]=pinorm*0.1;

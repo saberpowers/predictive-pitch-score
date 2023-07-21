@@ -4,8 +4,10 @@
 #' 
 #' @param data dataframe with the following columns: ax, ay, az, bx, by, bz, cx, cy, cz
 #' 
-#' @return a dataframe with the following columns:
-#'   release_x, release_y, release_z, plate_x, plate_z, horz_break, vert_break, induced_vert_break
+#' @return the input dataframe the following columns added:
+#'   release_x, release_y, release_z, plate_x, plate_z, horz_break, vert_break, induced_vert_break,
+#'   vx0, vy0, vz0, x0, y0, extension,
+#'   plate_y, plate_time, gravity, plate_x_line, plate_z_line, plate_z_gravity, t0
 #' 
 get_trackman_metrics <- function(data) {
 
@@ -32,10 +34,17 @@ get_trackman_metrics <- function(data) {
       # I'm reconstructing these from memory, so not 100% sure they're correct
       horz_break = plate_x - plate_x_line,
       vert_break = plate_z - plate_z_line,
-      induced_vert_break = plate_z - plate_z_gravity
-    ) |>
-    dplyr::select(
-      release_x, release_y, release_z, plate_x, plate_z, horz_break, vert_break, induced_vert_break
+      induced_vert_break = plate_z - plate_z_gravity,
+
+      # Also recover the TrackMan metrics necessary for calculating the quadratic coefficients
+      # t0 is the time when y = 50 (necessary for calculating velocity and x/z location at time t0)
+      t0 = (-by - sqrt(by^2 - 4 * (ay / 2) * (cy - 50))) / (2 * (ay / 2)),
+      vx0 = ax * t0 + bx,
+      vy0 = ay * t0 + by,
+      vz0 = az * t0 + bz,
+      x0 = ax * t0^2 / 2 + bx * t0 + cx,
+      z0 = az * t0^2 / 2 + bz * t0 + cz,
+      extension = 60.5 - cy
     )
   
   return(trackman_metrics)
