@@ -22,7 +22,7 @@ train_pitch_outcome_model <- function(pitch, count_value) {
   outcome_tree <- get_outcome_tree(pitch$description)
   
   regression_data <- pitch |>
-    dplyr::select(pre_balls, pre_strikes, hit_pred) |>    # make sure we don't duplicate columns
+    dplyr::select(pre_balls, pre_strikes, RHB, strike_zone_top, strike_zone_bottom, hit_pred) |>    # make sure we don't duplicate columns
     dplyr::bind_cols(outcome_model_features, outcome_tree) |>
     dplyr::filter(!is.na(extension))
   
@@ -87,7 +87,7 @@ train_pitch_outcome_model <- function(pitch, count_value) {
 #' 
 config_pitch_outcome_xgb <- list(
 
-  features = c("pre_balls", "pre_strikes", "plate_x", "plate_z",
+  features = c("pre_balls", "pre_strikes", "RHB", "strike_zone_top", "strike_zone_bottom", "plate_x", "plate_z",
     "plate_vx", "plate_vy", "plate_vz", "ax", "ay", "az", "extension"
   ),
 
@@ -168,7 +168,7 @@ predict.pitch_outcome_model <- function(object, newpitch, ...) {
     get_outcome_model_features()
 
   newdata <- newpitch |>
-    dplyr::select(pre_balls, pre_strikes) |>    # make sure we don't duplicate columns
+    dplyr::select(pre_balls, pre_strikes, RHB, strike_zone_top, strike_zone_bottom) |>    # make sure we don't duplicate columns
     dplyr::bind_cols(outcome_model_features) |>
     dplyr::select(dplyr::all_of(object$features)) |>
     as.matrix()
@@ -176,6 +176,9 @@ predict.pitch_outcome_model <- function(object, newpitch, ...) {
   pitch_pred <- tibble::tibble(
     pre_balls = newpitch$pre_balls,
     pre_strikes = newpitch$pre_strikes,
+    RHB = newpitch$RHB,
+    strike_zone_top = newpitch$strike_zone_top,
+    strike_zone_bottom = newpitch$strike_zone_bottom,
     prob_swing = predict(object$xgb$swing, newdata = newdata),
     prob_hbp = predict(object$xgb$hbp, newdata = newdata),
     prob_strike = predict(object$xgb$strike, newdata = newdata),
