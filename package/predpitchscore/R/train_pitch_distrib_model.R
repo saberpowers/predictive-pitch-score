@@ -24,7 +24,13 @@ train_pitch_distrib_model <- function(pitch,
 
   data <- pitch |>
     dplyr::left_join(event, by = c("year", "game_id", "event_index")) |>
-    dplyr::filter(pitch_type == pt, !is.na(extension), sqrt(vx0^2 + vy0^2 + vz0^2) >= 70) |>
+    dplyr::filter(
+      pitch_type == pt,
+      !is.na(extension),
+      sqrt(vx0^2 + vy0^2 + vz0^2) >= 70,
+      pre_balls < 4,
+      pre_strikes < 3
+    ) |>
     # Filter down to pitchers with at least 100 pitches
     dplyr::group_by(year, pitcher_id) |>
     dplyr::filter(dplyr::n() >= 100) |>
