@@ -12,7 +12,7 @@
 #' 
 #' @export
 #' 
-train_pitch_outcome_model <- function(pitch, count_value) {
+train_pitch_outcome_model <- function(pitch, count_value, stuff) {
 
   # Wrangle training data ----
   
@@ -28,7 +28,7 @@ train_pitch_outcome_model <- function(pitch, count_value) {
   
 
   # Train xgboost models ----
-
+  if(stuff==TRUE){
   xgb_swing <- regression_data |>
     dplyr::mutate(label = is_swing) |>
     train_pitch_outcome_xgb(features = config_pitch_outcome_xgb$features, label = "swing")
@@ -37,7 +37,18 @@ train_pitch_outcome_model <- function(pitch, count_value) {
     dplyr::filter(!is_swing) |>
     dplyr::mutate(label = is_hbp) |>
     train_pitch_outcome_xgb(features = config_pitch_outcome_xgb$features, label = "hbp")
- 
+ }
+  else {
+    xgb_swing <- regression_data |>
+    dplyr::mutate(label = is_swing) |>
+    train_pitch_outcome_xgb(features = config_pitch_outcome_xgb$contextfeatures, label = "swing")
+  
+  xgb_hbp <- regression_data |>
+    dplyr::filter(!is_swing) |>
+    dplyr::mutate(label = is_hbp) |>
+    train_pitch_outcome_xgb(features = config_pitch_outcome_xgb$contextfeatures, label = "hbp")
+  }
+  
   xgb_strike <- regression_data |>
     dplyr::filter(!is_swing, !is_hbp) |>
     dplyr::mutate(label = is_strike) |>
@@ -86,11 +97,17 @@ train_pitch_outcome_model <- function(pitch, count_value) {
 #' to use for each tuning parameter. We have a separate script for determining optimal parameters.
 #' 
 config_pitch_outcome_xgb <- list(
-
-  features = c("pre_balls", "pre_strikes", "RHB", "strike_zone_top", "strike_zone_bottom", "plate_x", "plate_z",
+  if(stuff==TRUE){
+  features = c("pre_balls", "pre_strikes", "RHB", "strike_zone_top", "strike_zone_bottom",
+               "plate_vx", "plate_vy", "plate_vz", "ax", "ay", "az", "extension"
+  ),
+  contextfeatures = c("pre_balls", "pre_strikes", "RHB", "strike_zone_top", "strike_zone_bottom"),
+  }
+  else{
+      features = c("pre_balls", "pre_strikes", "RHB", "strike_zone_top", "strike_zone_bottom", "plate_x", "plate_z",
     "plate_vx", "plate_vy", "plate_vz", "ax", "ay", "az", "extension"
   ),
-
+  }
   nrounds_swing = 150,
   params_swing = list(eta = 0.05, gamma = 0.1, max_depth = 9, objective = "binary:logistic"),
 
