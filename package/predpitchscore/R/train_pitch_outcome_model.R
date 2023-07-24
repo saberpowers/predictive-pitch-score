@@ -196,12 +196,12 @@ predict.pitch_outcome_model <- function(object, newpitch, ...) {
     RHB = newpitch$RHB,
     strike_zone_top = newpitch$strike_zone_top,
     strike_zone_bottom = newpitch$strike_zone_bottom,
-    prob_swing = predict(object$xgb$swing, newdata = newdata),
-    prob_hbp = predict(object$xgb$hbp, newdata = newdata),
-    prob_strike = predict(object$xgb$strike, newdata = newdata),
-    prob_contact = predict(object$xgb$contact, newdata = newdata),
-    prob_fair = predict(object$xgb$fair, newdata = newdata),
-    pred_hit = predict(object$xgb$hit, newdata = newdata)
+    prob_swing = predict(object$xgb$swing, newdata = newdata[,colnames(newdata) %in% object$xgb$swing$feature_names]),
+    prob_hbp = predict(object$xgb$hbp, newdata =  newdata[,colnames(newdata) %in% object$xgb$hbp$feature_names]),
+    prob_strike = predict(object$xgb$strike,  newdata[,colnames(newdata) %in% object$xgb$strike$feature_names]),
+    prob_contact = predict(object$xgb$contact, newdata[,colnames(newdata) %in% object$xgb$contact$feature_names]),
+    prob_fair = predict(object$xgb$fair, newdata = newdata[,colnames(newdata) %in% object$xgb$fair$feature_names]),
+    pred_hit = predict(object$xgb$hit, newdata = newdata[,colnames(newdata) %in% object$xgb$hit$feature_names])
   )
 
   pitch_value <- compute_pitch_value(pitch_pred = pitch_pred, count_value = object$count_value)
