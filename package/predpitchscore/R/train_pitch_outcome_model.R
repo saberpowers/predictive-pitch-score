@@ -12,7 +12,7 @@
 #' 
 #' @export
 #' 
-train_pitch_outcome_model <- function(pitch, count_value) {
+train_pitch_outcome_model <- function(pitch, count_value, stuff) {
 
   # Wrangle training data ----
   
@@ -22,13 +22,13 @@ train_pitch_outcome_model <- function(pitch, count_value) {
   outcome_tree <- get_outcome_tree(pitch$description)
   
   regression_data <- pitch |>
-    dplyr::select(pre_balls, pre_strikes, hit_pred) |>    # make sure we don't duplicate columns
+    dplyr::select(pre_balls, pre_strikes, RHB, strike_zone_top, strike_zone_bottom, hit_pred) |>    # make sure we don't duplicate columns
     dplyr::bind_cols(outcome_model_features, outcome_tree) |>
     dplyr::filter(!is.na(extension))
   
 
   # Train xgboost models ----
-
+  if(stuff==TRUE){
   xgb_swing <- regression_data |>
     dplyr::mutate(label = is_swing) |>
     train_pitch_outcome_xgb(features = config_pitch_outcome_xgb$features, label = "swing")
@@ -37,7 +37,18 @@ train_pitch_outcome_model <- function(pitch, count_value) {
     dplyr::filter(!is_swing) |>
     dplyr::mutate(label = is_hbp) |>
     train_pitch_outcome_xgb(features = config_pitch_outcome_xgb$features, label = "hbp")
- 
+ }
+  else {
+    xgb_swing <- regression_data |>
+    dplyr::mutate(label = is_swing) |>
+    train_pitch_outcome_xgb(features = config_pitch_outcome_xgb$contextfeatures, label = "swing")
+  
+  xgb_hbp <- regression_data |>
+    dplyr::filter(!is_swing) |>
+    dplyr::mutate(label = is_hbp) |>
+    train_pitch_outcome_xgb(features = config_pitch_outcome_xgb$contextfeatures, label = "hbp")
+  }
+  
   xgb_strike <- regression_data |>
     dplyr::filter(!is_swing, !is_hbp) |>
     dplyr::mutate(label = is_strike) |>
@@ -86,11 +97,17 @@ train_pitch_outcome_model <- function(pitch, count_value) {
 #' to use for each tuning parameter. We have a separate script for determining optimal parameters.
 #' 
 config_pitch_outcome_xgb <- list(
-
-  features = c("pre_balls", "pre_strikes", "plate_x", "plate_z",
+  if(stuff==TRUE){
+  features = c("pre_balls", "pre_strikes", "RHB", "strike_zone_top", "strike_zone_bottom",
+               "plate_vx", "plate_vy", "plate_vz", "ax", "ay", "az", "extension"
+  ),
+  contextfeatures = c("pre_balls", "pre_strikes", "RHB", "strike_zone_top", "strike_zone_bottom"),
+  }
+  else{
+      features = c("pre_balls", "pre_strikes", "RHB", "strike_zone_top", "strike_zone_bottom", "plate_x", "plate_z",
     "plate_vx", "plate_vy", "plate_vz", "ax", "ay", "az", "extension"
   ),
-
+  }
   nrounds_swing = 150,
   params_swing = list(eta = 0.05, gamma = 0.1, max_depth = 9, objective = "binary:logistic"),
 
@@ -168,7 +185,7 @@ predict.pitch_outcome_model <- function(object, newpitch, ...) {
     get_outcome_model_features()
 
   newdata <- newpitch |>
-    dplyr::select(pre_balls, pre_strikes) |>    # make sure we don't duplicate columns
+    dplyr::select(pre_balls, pre_strikes, RHB, strike_zone_top, strike_zone_bottom) |>    # make sure we don't duplicate columns
     dplyr::bind_cols(outcome_model_features) |>
     dplyr::select(dplyr::all_of(object$features)) |>
     as.matrix()
@@ -176,12 +193,15 @@ predict.pitch_outcome_model <- function(object, newpitch, ...) {
   pitch_pred <- tibble::tibble(
     pre_balls = newpitch$pre_balls,
     pre_strikes = newpitch$pre_strikes,
-    prob_swing = predict(object$xgb$swing, newdata = newdata),
-    prob_hbp = predict(object$xgb$hbp, newdata = newdata),
-    prob_strike = predict(object$xgb$strike, newdata = newdata),
-    prob_contact = predict(object$xgb$contact, newdata = newdata),
-    prob_fair = predict(object$xgb$fair, newdata = newdata),
-    pred_hit = predict(object$xgb$hit, newdata = newdata)
+    RHB = newpitch$RHB,
+    strike_zone_top = newpitch$strike_zone_top,
+    strike_zone_bottom = newpitch$strike_zone_bottom,
+    prob_swing = predict(object$xgb$swing, newdata = newdata[,colnames(newdata) %in% object$xgb$swing$feature_names]),
+    prob_hbp = predict(object$xgb$hbp, newdata =  newdata[,colnames(newdata) %in% object$xgb$hbp$feature_names]),
+    prob_strike = predict(object$xgb$strike,  newdata[,colnames(newdata) %in% object$xgb$strike$feature_names]),
+    prob_contact = predict(object$xgb$contact, newdata[,colnames(newdata) %in% object$xgb$contact$feature_names]),
+    prob_fair = predict(object$xgb$fair, newdata = newdata[,colnames(newdata) %in% object$xgb$fair$feature_names]),
+    pred_hit = predict(object$xgb$hit, newdata = newdata[,colnames(newdata) %in% object$xgb$hit$feature_names])
   )
 
   pitch_value <- compute_pitch_value(pitch_pred = pitch_pred, count_value = object$count_value)
