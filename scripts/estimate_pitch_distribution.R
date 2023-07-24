@@ -1,41 +1,58 @@
 
+library(predpitchscore)
+
 year <- 2022
+
+
+# Load the data ----
 
 pitch <- data.table::fread(glue::glue("data/pitch/{year}.csv"))
 event <- data.table::fread(glue::glue("data/event/{year}.csv"))
 
-pitch_types <- c("FF", "SI", "FC", "SL", "CU", "KC", "CH", "FS")
-pitch_distrib_model <- list()
+data <- pitch |>
+  dplyr::left_join(event, by = c("year", "game_id", "event_index")) |>
+  dplyr::filter(pitch_type %in% c("FF", "SI", "FC", "SL", "CU", "KC", "CH", "FS")) |>
+  dplyr::mutate(
+    even_odd = ifelse(game_id %% 2 == 0, "even", "odd"),
+    batch = paste(pitch_type, even_odd, sep = "_")
+  )
 
-cluster <- parallel::makeCluster(parallel::detectCores())
-pitch_distrib_model <- parallel::parLapply(
-  cl = cluster,
-  X = pitch_types,
-  fun = function(pt, year, ...) {
 
-    pitch_distrib_model <- try(predpitchscore::train_pitch_distrib_model(pt, ...))
+# Set up helper variables for parallel computation ----
 
-    if (class(pitch_distrib_model) == "try-error") {
-      logger::log_warn("{year} {pt} posterior optimization erred; skipping")
-      return(pitch_distrib_model)
-    }
+num_workers <- parallel::detectCores()
 
-    file <- glue::glue("models/distribution/{pt}/{year}.rds")
+batch <- data |>
+  dplyr::count(batch, pitch_type, even_odd) |>
+  # Assign workers to batches with snake draft order (for computational efficiency)
+  dplyr::arrange(-n) |>
+  dplyr::mutate(worker = rep(c(1:num_workers, num_workers:1), length = dplyr::n())) |>
+  dplyr::arrange(worker)
 
-    # I don't like to write to file within a function like this, but saving the cmdstanr fitted
-    # model is funky. We can probably improve upon how we handle this.
-    # Have to call `$save_object` method first to ensure cmdstan model saves correctly
-    pitch_distrib_model$cmdstan_fit$save_object(file = file)
-    pitch_distrib_model$cmdstan_fit <- readRDS(file)
-    saveRDS(pitch_distrib_model, file = file)
+batch_data <- split(data, f = data$batch)[batch$batch]
 
-    return(pitch_distrib_model)
+
+# Fit the models ----
+
+future::plan(strategy = future::multisession, workers = parallel::detectCores())
+pitch_distrib_model <- future.apply::future_lapply(
+  X = batch_data,
+  FUN = function(data, ...) {
+    model <- try(train_pitch_distrib_model(data = data, ...))
+    return(model)
   },
-  year = year,
-  pitch = pitch,
-  event = event,
-  iter = 15000,
+  future.seed = TRUE,
+  iter = 150,
   tol_param = 1e-8
 )
-names(pitch_distrib_model) <- pitch_types
-parallel::stopCluster(cluster)
+future::plan(strategy = future::sequential)
+
+
+# Save the models ----
+
+for (b in 1:nrow(batch)) {
+  saveRDS(
+    pitch_distrib_model[[batch$batch[b]]],
+    file = glue::glue("models/distribution/{batch$pitch_type[b]}/{year}_{batch$even_odd[b]}.rds")
+  )
+}
