@@ -5,19 +5,13 @@
 \title{Estimate pitch distribution model via MAP parameters}
 \usage{
 train_pitch_distrib_model(
-  pitch,
-  event,
-  pt = c("FF", "SI", "FC", "SL", "CU", "KC", "CH", "FS"),
+  data,
   pitch_char_vec = c("ax", "bx", "cx", "ay", "by", "cy", "az", "bz", "cz"),
   ...
 )
 }
 \arguments{
-\item{pitch}{dataframe of pitch data from \code{\link{extract_season}}}
-
-\item{event}{dataframe of event data from \code{\link{extract_season}}}
-
-\item{pt}{character, abbreviated pitch type for which to fit model}
+\item{data}{dataframe of pitch and event data}
 
 \item{pitch_char_vec}{character vector of pitch characteristics to model}
 

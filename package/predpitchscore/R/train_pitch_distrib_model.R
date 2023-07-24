@@ -3,9 +3,7 @@
 #' We use cmdstanr to estimate MAP parameters for a hierarchical Bayesian model for pitch
 #' characteristic means, standard deviations, and covariance matrices.
 #' 
-#' @param pitch dataframe of pitch data from \code{\link{extract_season}}
-#' @param event dataframe of event data from \code{\link{extract_season}}
-#' @param pt character, abbreviated pitch type for which to fit model
+#' @param data dataframe of pitch and event data
 #' @param pitch_char_vec character vector of pitch characteristics to model
 #' @param ... additional arguments for for cmdstanr optimize method
 #' 
@@ -13,19 +11,15 @@
 #' 
 #' @export
 #' 
-train_pitch_distrib_model <- function(pitch,
-                                      event,
-                                      pt = c("FF", "SI", "FC", "SL", "CU", "KC", "CH", "FS"),
+train_pitch_distrib_model <- function(data,
                                       pitch_char_vec = c(
                                        "ax", "bx", "cx", "ay", "by", "cy", "az", "bz", "cz"
                                       ),
                                       ...
                                       ) {
 
-  data <- pitch |>
-    dplyr::left_join(event, by = c("year", "game_id", "event_index")) |>
+  model_data <- data |>
     dplyr::filter(
-      pitch_type == pt,
       !is.na(extension),
       sqrt(vx0^2 + vy0^2 + vz0^2) >= 70,
       pre_balls < 4,
@@ -48,12 +42,12 @@ train_pitch_distrib_model <- function(pitch,
     )
   
   # Record the hand of each pitcher to be used later when producing simulations
-  pitcher_hand <- data |>
+  pitcher_hand <- model_data |>
     dplyr::group_by(pitcher_id) |>
     dplyr::summarize(pitch_hand = ifelse(mean(pitch_hand == "L") > 0.5, "L", "R"))
   
   # Record league means and SDs to be used later when producing simulations
-  league_params <- data |>
+  league_params <- model_data |>
     dplyr::summarize(
       dplyr::across(
         .cols = dplyr::all_of(
@@ -66,7 +60,7 @@ train_pitch_distrib_model <- function(pitch,
     )
   
   # Standardize pitch trajectory and context variables
-  data_standardized <- data |>
+  data_standardized <- model_data |>
     dplyr::mutate(
       dplyr::across(
         .cols = dplyr::all_of(c(pitch_char_vec, "strike_zone_top", "strike_zone_bottom")),
@@ -118,6 +112,9 @@ train_pitch_distrib_model <- function(pitch,
     init = cmdstan_init,
     ...
   )
+
+  # Because draws are only read lazily into R, this ensures that saving the object works downstream
+  draws <- cmdstan_fit$draws()
 
   model <- list(
     cmdstan_fit = cmdstan_fit,

@@ -4,13 +4,15 @@
 \alias{train_pitch_outcome_model}
 \title{Train pitch outcome model}
 \usage{
-train_pitch_outcome_model(pitch, count_value)
+train_pitch_outcome_model(pitch, count_value, stuff_only = FALSE)
 }
 \arguments{
 \item{pitch}{dataframe of pitch data from \code{\link{extract_season}}}
 
 \item{count_value}{dataframe of count_value from \code{\link{compute_count_value}},
 not used but stashed in the model object for pitch value prediction}
+
+\item{stuff_only}{logical, fit model with only "Stuff" features (no pitch location)?}
 }
 \value{
 a fitted "pitch_outcome_model" object
