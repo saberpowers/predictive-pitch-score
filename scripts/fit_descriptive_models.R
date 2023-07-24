@@ -34,8 +34,9 @@ hit_outcome_model <- train_hit_outcome_model(
 )
 
 pitch$hit_pred[!is.na(pitch$launch_speed)] <- hit_outcome_model$pred
-
-pitch_outcome_model <- train_pitch_outcome_model(pitch = pitch, count_value = count_value)
+pitch$RHB<-as.numeric(dplyr::left_join(pitch,event, by = c("year", "game_id", "event_index"))$bat_side=="R")
+pitch_outcome_model <- train_pitch_outcome_model(pitch = pitch, count_value = count_value, stuff=FALSE)
+pitch_stuff_outcome_model <- train_pitch_outcome_model(pitch = pitch, count_value = count_value, stuff=TRUE)
 
 
 # Save the models ----
@@ -44,3 +45,5 @@ write.csv(base_out_run_exp, file = "models/base_out_run_exp.csv", row.names = FA
 write.csv(count_value, file = "models/count_value.csv", row.names = FALSE)
 saveRDS(hit_outcome_model, file = "models/hit_outcome_model.rds")
 saveRDS(pitch_outcome_model, file = "models/pitch_outcome_model.rds")
+saveRDS(pitch_stuff_outcome_model, file = "models/pitch_stuff_outcome_model.rds")
+
