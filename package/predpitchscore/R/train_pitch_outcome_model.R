@@ -78,7 +78,7 @@ train_pitch_outcome_model <- function(pitch, count_value, stuff_only = FALSE) {
     hit = xgb_hit
   )
 
-  model <- list(xgb = xgb, count_value = count_value, features = config_pitch_outcome_xgb$features)
+  model <- list(xgb = xgb, count_value = count_value, features = features)
   
   class(model) <- "pitch_outcome_model"
 
