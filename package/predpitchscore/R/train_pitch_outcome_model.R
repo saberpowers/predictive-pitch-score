@@ -7,12 +7,13 @@
 #' @param pitch dataframe of pitch data from \code{\link{extract_season}}
 #' @param count_value dataframe of count_value from \code{\link{compute_count_value}},
 #'   not used but stashed in the model object for pitch value prediction
+#' @param stuff_only logical, fit model with only "Stuff" features (no pitch location)?
 #' 
 #' @return a fitted "pitch_outcome_model" object
 #' 
 #' @export
 #' 
-train_pitch_outcome_model <- function(pitch, count_value, stuff) {
+train_pitch_outcome_model <- function(pitch, count_value, stuff_only = FALSE) {
 
   # Wrangle training data ----
   
@@ -22,52 +23,48 @@ train_pitch_outcome_model <- function(pitch, count_value, stuff) {
   outcome_tree <- get_outcome_tree(pitch$description)
   
   regression_data <- pitch |>
-    dplyr::select(pre_balls, pre_strikes, RHB, strike_zone_top, strike_zone_bottom, hit_pred) |>    # make sure we don't duplicate columns
+    # Make sure we don't duplicate columns
+    dplyr::select(pre_balls, pre_strikes, is_rhb, strike_zone_top, strike_zone_bottom, hit_pred) |>
     dplyr::bind_cols(outcome_model_features, outcome_tree) |>
     dplyr::filter(!is.na(extension))
   
 
   # Train xgboost models ----
-  if(stuff==TRUE){
+
+  if (stuff_only) {
+    features <- with(config_pitch_outcome_xgb, c(context_features, stuff_features))
+  } else {
+    features <- with(config_pitch_outcome_xgb, c(context_features, pitch_features))
+  }
+
   xgb_swing <- regression_data |>
     dplyr::mutate(label = is_swing) |>
-    train_pitch_outcome_xgb(features = config_pitch_outcome_xgb$features, label = "swing")
+    train_pitch_outcome_xgb(features = features, label = "swing")
   
   xgb_hbp <- regression_data |>
     dplyr::filter(!is_swing) |>
     dplyr::mutate(label = is_hbp) |>
-    train_pitch_outcome_xgb(features = config_pitch_outcome_xgb$features, label = "hbp")
- }
-  else {
-    xgb_swing <- regression_data |>
-    dplyr::mutate(label = is_swing) |>
-    train_pitch_outcome_xgb(features = config_pitch_outcome_xgb$contextfeatures, label = "swing")
-  
-  xgb_hbp <- regression_data |>
-    dplyr::filter(!is_swing) |>
-    dplyr::mutate(label = is_hbp) |>
-    train_pitch_outcome_xgb(features = config_pitch_outcome_xgb$contextfeatures, label = "hbp")
-  }
-  
+    train_pitch_outcome_xgb(features = features, label = "hbp")
+ 
   xgb_strike <- regression_data |>
     dplyr::filter(!is_swing, !is_hbp) |>
     dplyr::mutate(label = is_strike) |>
-    train_pitch_outcome_xgb(features = config_pitch_outcome_xgb$features, label = "strike")
+    train_pitch_outcome_xgb(features = features, label = "strike")
   
   xgb_contact <- regression_data |>
     dplyr::filter(is_swing) |>
     dplyr::mutate(label = is_contact) |>
-    train_pitch_outcome_xgb(features = config_pitch_outcome_xgb$features, label = "contact")
+    train_pitch_outcome_xgb(features = features, label = "contact")
   
   xgb_fair <- regression_data |>
     dplyr::filter(is_swing, is_contact) |>
     dplyr::mutate(label = is_fair) |>
-    train_pitch_outcome_xgb(features = config_pitch_outcome_xgb$features, label = "fair")
+    train_pitch_outcome_xgb(features = features, label = "fair")
  
   xgb_hit <- regression_data |>
     dplyr::filter(is_swing, is_contact, is_fair, !is.na(hit_pred)) |>
     dplyr::mutate(label = hit_pred) |>
-    train_pitch_outcome_xgb(features = config_pitch_outcome_xgb$features, label = "hit")
+    train_pitch_outcome_xgb(features = features, label = "hit")
 
 
   # Combine models and return ----
@@ -97,17 +94,11 @@ train_pitch_outcome_model <- function(pitch, count_value, stuff) {
 #' to use for each tuning parameter. We have a separate script for determining optimal parameters.
 #' 
 config_pitch_outcome_xgb <- list(
-  if(stuff==TRUE){
-  features = c("pre_balls", "pre_strikes", "RHB", "strike_zone_top", "strike_zone_bottom",
-               "plate_vx", "plate_vy", "plate_vz", "ax", "ay", "az", "extension"
-  ),
-  contextfeatures = c("pre_balls", "pre_strikes", "RHB", "strike_zone_top", "strike_zone_bottom"),
-  }
-  else{
-      features = c("pre_balls", "pre_strikes", "RHB", "strike_zone_top", "strike_zone_bottom", "plate_x", "plate_z",
-    "plate_vx", "plate_vy", "plate_vz", "ax", "ay", "az", "extension"
-  ),
-  }
+
+  context_features = c("pre_balls", "pre_strikes", "is_rhb", "strike_zone_top", "strike_zone_bottom"),
+  pitch_features = c("plate_x", "plate_z", "plate_vx", "plate_vy", "plate_vz", "ax", "ay", "az", "extension"),
+  stuff_features = c("plate_vx", "plate_vy", "plate_vz", "ax", "ay", "az", "extension"),
+
   nrounds_swing = 150,
   params_swing = list(eta = 0.05, gamma = 0.1, max_depth = 9, objective = "binary:logistic"),
 
@@ -185,7 +176,8 @@ predict.pitch_outcome_model <- function(object, newpitch, ...) {
     get_outcome_model_features()
 
   newdata <- newpitch |>
-    dplyr::select(pre_balls, pre_strikes, RHB, strike_zone_top, strike_zone_bottom) |>    # make sure we don't duplicate columns
+    # Make sure we don't duplicate columns
+    dplyr::select(pre_balls, pre_strikes, is_rhb, strike_zone_top, strike_zone_bottom) |>
     dplyr::bind_cols(outcome_model_features) |>
     dplyr::select(dplyr::all_of(object$features)) |>
     as.matrix()
@@ -193,7 +185,7 @@ predict.pitch_outcome_model <- function(object, newpitch, ...) {
   pitch_pred <- tibble::tibble(
     pre_balls = newpitch$pre_balls,
     pre_strikes = newpitch$pre_strikes,
-    RHB = newpitch$RHB,
+    is_rhb = newpitch$is_rhb,
     strike_zone_top = newpitch$strike_zone_top,
     strike_zone_bottom = newpitch$strike_zone_bottom,
     prob_swing = predict(object$xgb$swing, newdata = newdata[,colnames(newdata) %in% object$xgb$swing$feature_names]),

@@ -6,14 +6,7 @@ library(predpitchscore)
 
 data_dir <- "data"
 
-pitch <- data.table::fread("data/pitch/2022.csv",
-  select = c("game_id", "event_index",
-    "launch_speed", "launch_angle", "hit_coord_x", "hit_coord_y",
-    "pre_balls", "pre_strikes", "ax", "ay", "az", "vx0", "vy0", "vz0", "x0", "z0", "extension",
-    "description"
-  )
-)
-
+pitch <- data.table::fread("data/pitch/2022.csv")
 event <- read.csv("data/event/2022.csv")
 
 
@@ -34,9 +27,17 @@ hit_outcome_model <- train_hit_outcome_model(
 )
 
 pitch$hit_pred[!is.na(pitch$launch_speed)] <- hit_outcome_model$pred
-pitch$RHB<-as.numeric(dplyr::left_join(pitch,event, by = c("year", "game_id", "event_index"))$bat_side=="R")
-pitch_outcome_model <- train_pitch_outcome_model(pitch = pitch, count_value = count_value, stuff=FALSE)
-pitch_stuff_outcome_model <- train_pitch_outcome_model(pitch = pitch, count_value = count_value, stuff=TRUE)
+pitch$is_rhb <- pitch |>
+  dplyr::left_join(event, by = c("year", "game_id", "event_index")) |>
+  with(bat_side == "R") |>
+  as.numeric()
+
+pitch_outcome_model <- train_pitch_outcome_model(pitch = pitch, count_value = count_value)
+pitch_stuff_outcome_model <- train_pitch_outcome_model(
+  pitch = pitch,
+  count_value = count_value,
+  stuff_only = TRUE
+)
 
 
 # Save the models ----
