@@ -1,10 +1,21 @@
 
 library(predpitchscore)
 
-year <- 2022
+year <- 2021
+iter <- 15000
+tol_param <- 1e-8
+verbose <- TRUE
+
+if (verbose) {
+  logger::log_info("Running with year: {year}, iter: {iter}, tol_param: {tol_param}")
+}
 
 
 # Load the data ----
+
+if (verbose) {
+  logger::log_info("Loading data")
+}
 
 pitch <- data.table::fread(glue::glue("data/pitch/{year}.csv"))
 event <- data.table::fread(glue::glue("data/event/{year}.csv"))
@@ -34,6 +45,10 @@ batch_data <- split(data, f = data$batch)[batch$batch]
 
 # Fit the models ----
 
+if (verbose) {
+  logger::log_info("Fitting models")
+}
+
 future::plan(strategy = future::multisession, workers = parallel::detectCores())
 pitch_distrib_model <- future.apply::future_lapply(
   X = batch_data,
@@ -42,13 +57,17 @@ pitch_distrib_model <- future.apply::future_lapply(
     return(model)
   },
   future.seed = TRUE,
-  iter = 150,
-  tol_param = 1e-8
+  iter = iter,
+  tol_param = tol_param
 )
 future::plan(strategy = future::sequential)
 
 
 # Save the models ----
+
+if (verbose) {
+  logger::log_info("Saving models")
+}
 
 for (b in 1:nrow(batch)) {
   saveRDS(
