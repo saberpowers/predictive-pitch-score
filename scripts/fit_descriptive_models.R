@@ -32,6 +32,24 @@ pitch$is_rhb <- pitch |>
   with(bat_side == "R") |>
   as.numeric()
 
+outcome_tree <- get_outcome_tree(pitch$description)
+pitch<-cbind(pitch,outcome_tree)
+
+actualpitch_pred<- tibble::tibble(
+  pre_balls = pitch$pre_balls,
+  pre_strikes = pitch$pre_strikes,
+  prob_swing = as.numeric(pitch$is_swing),
+  prob_hbp = as.numeric(pitch$is_hbp),
+  prob_strike = as.numeric(pitch$is_strike),
+  prob_contact = as.numeric(pitch$is_contact),
+  prob_fair = as.numeric(pitch$is_fair),
+  pred_hit = pitch$hit_pred
+)
+
+pitch_value <- compute_pitch_value(pitch_pred = actualpitch_pred, count_value = count_value)
+pitch$true_value<-pitch_value$pitch_value
+
+
 pitch_outcome_model <- train_pitch_outcome_model(pitch = pitch, count_value = count_value)
 pitch_stuff_outcome_model <- train_pitch_outcome_model(
   pitch = pitch,
