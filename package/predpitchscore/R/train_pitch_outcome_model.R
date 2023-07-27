@@ -21,11 +21,16 @@ train_pitch_outcome_model <- function(pitch, count_value, stuff_only = FALSE) {
     get_quadratic_coef() |>
     get_outcome_model_features()
   outcome_tree <- get_outcome_tree(pitch$description)
+
+  trackman_metrics <- pitch |>
+    get_quadratic_coef() |>
+    get_trackman_metrics() |>
+    dplyr::select(release_speed, horz_break, induced_vert_break)
   
   regression_data <- pitch |>
     # Make sure we don't duplicate columns
-    dplyr::select(pre_balls, pre_strikes, is_rhb, strike_zone_top, strike_zone_bottom, hit_pred) |>
-    dplyr::bind_cols(outcome_model_features, outcome_tree) |>
+    dplyr::select(pre_balls, pre_strikes, is_rhb, strike_zone_top, strike_zone_bottom, hit_pred, true_value, x0, z0) |>
+    dplyr::bind_cols(outcome_model_features, outcome_tree, trackman_metrics) |>
     dplyr::filter(!is.na(extension))
   
 
@@ -66,6 +71,11 @@ train_pitch_outcome_model <- function(pitch, count_value, stuff_only = FALSE) {
     dplyr::mutate(label = hit_pred) |>
     train_pitch_outcome_xgb(features = features, label = "hit")
 
+  xgb_value <- regression_data |>
+    dplyr::filter(!is.na(true_value)) |>
+    dplyr::mutate(label = true_value) |>
+    train_pitch_outcome_xgb(features = features, label = "value")
+
 
   # Combine models and return ----
   
@@ -75,7 +85,8 @@ train_pitch_outcome_model <- function(pitch, count_value, stuff_only = FALSE) {
     strike = xgb_strike,
     contact = xgb_contact,
     fair = xgb_fair,
-    hit = xgb_hit
+    hit = xgb_hit,
+    value = xgb_value
   )
 
   model <- list(xgb = xgb, count_value = count_value, features = features)
@@ -97,7 +108,7 @@ config_pitch_outcome_xgb <- list(
 
   context_features = c("pre_balls", "pre_strikes", "is_rhb", "strike_zone_top", "strike_zone_bottom"),
   pitch_features = c("plate_x", "plate_z", "plate_vx", "plate_vy", "plate_vz", "ax", "ay", "az", "extension"),
-  stuff_features = c("plate_vx", "plate_vy", "plate_vz", "ax", "ay", "az", "extension"),
+  stuff_features = c("horz_break","induced_vert_break","release_speed","z0", "ay", "x0", "extension"),
 
   nrounds_swing = 150,
   params_swing = list(eta = 0.05, gamma = 0.1, max_depth = 9, objective = "binary:logistic"),
@@ -115,7 +126,10 @@ config_pitch_outcome_xgb <- list(
   params_fair = list(eta = 0.05, gamma = 0.1, max_depth = 9, objective = "binary:logistic"),
 
   nrounds_hit = 150,
-  params_hit = list(eta = 0.05, gamma = 0.1, max_depth = 9, objective = "reg:squarederror")
+  params_hit = list(eta = 0.05, gamma = 0.1, max_depth = 9, objective = "reg:squarederror"),
+    
+  nrounds_value = 150,
+  params_value = list(eta = 0.05, gamma = 0.1, max_depth = 9, objective = "reg:squarederror")
 )
 
 
@@ -137,7 +151,7 @@ config_pitch_outcome_xgb <- list(
 #' 
 train_pitch_outcome_xgb <- function(data_subset,
                                     features,
-                                    label = c("swing", "hbp", "strike", "contact", "fair", "hit"),
+                                    label = c("swing", "hbp", "strike", "contact", "fair", "hit", "value"),
                                     verbose = 0,
                                     ...) {
 
@@ -175,10 +189,15 @@ predict.pitch_outcome_model <- function(object, newpitch, ...) {
     get_quadratic_coef() |>
     get_outcome_model_features()
 
+  trackman_metrics <- pitch |>
+    get_quadratic_coef() |>
+    get_trackman_metrics() |>
+    dplyr::select(release_speed, horz_break, induced_vert_break)
+
   newdata <- newpitch |>
     # Make sure we don't duplicate columns
-    dplyr::select(pre_balls, pre_strikes, is_rhb, strike_zone_top, strike_zone_bottom) |>
-    dplyr::bind_cols(outcome_model_features) |>
+    dplyr::select(pre_balls, pre_strikes, is_rhb, strike_zone_top, strike_zone_bottom, x0, z0) |>
+    dplyr::bind_cols(outcome_model_features, trackman_metrics) |>
     dplyr::select(dplyr::all_of(object$features)) |>
     as.matrix()
 
