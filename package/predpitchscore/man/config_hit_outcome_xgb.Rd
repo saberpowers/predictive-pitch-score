@@ -5,7 +5,7 @@
 \alias{config_hit_outcome_xgb}
 \title{Configuration for hit outcome XGBoost model}
 \format{
-An object of class \code{list} of length 2.
+An object of class \code{list} of length 4.
 }
 \usage{
 config_hit_outcome_xgb

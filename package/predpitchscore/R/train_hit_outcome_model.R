@@ -7,12 +7,13 @@
 #' @param event dataframe of event data from \code{\link{extract_season}}
 #' @param base_out_run_exp dataframe of base-out run expectancy from
 #'   \code{\link{compute_base_out_run_exp}}
+#' @param tune logical, if true, tune the hyperparameters instead of fitting the model
 #' 
 #' @return a fitted xgb.Booster object
 #' 
 #' @export
 #' 
-train_hit_outcome_model <- function(pitch, event, base_out_run_exp) {
+train_hit_outcome_model <- function(pitch, event, base_out_run_exp, tune = FALSE) {
 
   data <- pitch |>
     # We only care about pitches for which we observe launch speed
@@ -53,15 +54,47 @@ train_hit_outcome_model <- function(pitch, event, base_out_run_exp) {
     dplyr::select(launch_speed, launch_angle, hit_bearing) |>
     as.matrix()
 
-  model <- xgboost::xgboost(
-    data = covariate_matrix,
-    label = data$exp_runs_diff,
-    nrounds = config_hit_outcome_xgb$nrounds,
-    params = config_hit_outcome_xgb$params,
+  if (tune) {
+
+    cv_result <- tune_xgb_parallel(
+      covariate_matrix = covariate_matrix,
+      label = data$exp_runs_diff,
+      params_list = config_hit_outcome_xgb$params_list,
+      nrounds = config_hit_outcome_xgb$nrounds_max,
+      response = "gaussian"
+    )
+
+    # Extract best-fit parameters
+    cv_result_best <- cv_result |>
+      dplyr::arrange(test_rmse_mean) |>
+      dplyr::slice(1)
+      
+    params <- cv_result_best |>
+      dplyr::select(
+        objective, eta, gamma, max_depth, min_child_weight, subsample, colsample_bytree
+      ) |>
+      as.list()
+
+    nrounds <- cv_result_best$iter
+
+  } else {
+
+    params <- config_hit_outcome_xgb$params
+    nrounds <- config_hit_outcome_xgb$nrounds
+  }
+
+  model <- xgboost::xgb.train(
+    params = params,
+    data = xgboost::xgb.DMatrix(covariate_matrix, label = data$exp_runs_diff),
+    nrounds = nrounds,
     verbose = 0
   )
 
   model$pred <- predict(model, newdata = covariate_matrix)
+
+  if (tune) {
+    model$cv_result <- cv_result
+  }
 
   return(model)
 }
@@ -77,6 +110,7 @@ train_hit_outcome_model <- function(pitch, event, base_out_run_exp) {
 config_hit_outcome_xgb <- list(
 
   nrounds = 2000,
+
   params = list(
     objective = "reg:squarederror",
     eta = 0.01,
@@ -85,5 +119,20 @@ config_hit_outcome_xgb <- list(
     min_child_weight = 400,
     subsample = 0.65,
     colsample_bytree = 0.7
-  )
+  ),
+
+  # Maximum nrounds for tuning
+  nrounds_max = 3000,
+
+  # List of parameter combinations to try for tuning
+  params_list = expand.grid(
+    nthread = 1,  # turn off xgb threading (threading across parameter sets is more efficient)
+    eta = c(0.01, 0.05, 0.3),
+    gamma = 0,
+    max_depth = c(3, 6, 9),
+    min_child_weight = c(10, 30, 100),
+    subsample = 0.65,
+    colsample_bytree = 0.7
+  ) |>
+    apply(MARGIN = 1, FUN = as.list)
 )
