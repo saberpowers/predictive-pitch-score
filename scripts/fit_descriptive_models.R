@@ -41,6 +41,18 @@ pitch$is_rhb <- pitch |>
   dplyr::left_join(event, by = c("year", "game_id", "event_index")) |>
   with(bat_side == "R") |>
   as.numeric()
+pitch$true_value <- pitch |>
+  cbind(get_outcome_tree(pitch$description)) |>
+  dplyr::mutate(
+    prob_swing = as.numeric(is_swing),
+    prob_hbp = as.numeric(is_hbp),
+    prob_strike = as.numeric(is_strike),
+    prob_contact = as.numeric(is_contact),
+    prob_fair = as.numeric(is_fair),
+    pred_hit = dplyr::coalesce(hit_pred, 0)
+  ) |>
+  compute_pitch_value(count_value = count_value) |>
+  with(pitch_value)
 
 if (verbose) {
   logger::log_info("Fitting pitch outcome models")
@@ -51,6 +63,7 @@ pitch_outcome_model <- train_pitch_outcome_model(
   count_value = count_value,
   tune = tune
 )
+
 pitch_stuff_outcome_model <- train_pitch_outcome_model(
   pitch = pitch,
   count_value = count_value,

@@ -79,6 +79,19 @@ train_pitch_distrib_model <- function(data,
     dplyr::count(bsh_num) |>
     dplyr::mutate(weight = n / sum(n))
 
+full_bsh_weights<-bsh_weights
+for(i in 1:24){
+  row<-dplyr::filter(bsh_weights,bsh_num==i)
+  if(length(row$bsh_num)==1){
+    full_bsh_weights[i,]=row
+  }
+  else{
+    full_bsh_weights[i,1]<-i
+    full_bsh_weights[i,2]<-0
+  }
+}
+bsh_weights<-full_bsh_weights
+
   stan_data <- with(data_standardized,
     list(
       n = nrow(data_standardized),
@@ -220,6 +233,21 @@ initialize_pitch_distrib_model <- function(data_standardized, pitch_char_vec) {
         .fns = list(mean = mean, sd = sd)
       )
     )
+
+  full_bsh_params<-bsh_params
+  for(i in 1:24){
+    row<-filter(bsh_params,bsh_num==i)
+    if(length(row$bshnum)==1){
+      full_bsh_params[i,]=row
+    }
+    else{
+      full_bsh_params[i,1]<-i
+      full_bsh_params[i,2:10]<-0
+      full_bsh_params[i,11:19]<-1
+    }
+  }
+  bsh_params<-full_bsh_params
+
   
   bsh_means <- bsh_params |>
     dplyr::select(dplyr::ends_with("_mean")) |>
@@ -227,7 +255,8 @@ initialize_pitch_distrib_model <- function(data_standardized, pitch_char_vec) {
   
   bsh_sds <- bsh_params |>
     dplyr::select(dplyr::ends_with("_sd")) |>
-    as.matrix()
+    as.matrix() |>
+    tidyr::replace_na(1)
 
   z_scores <- data_standardized_long |>
     dplyr::left_join(pitcher_params, by = c("pitcher_num", "pitch_char")) |>

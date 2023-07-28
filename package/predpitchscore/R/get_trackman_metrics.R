@@ -44,7 +44,8 @@ get_trackman_metrics <- function(data) {
       vz0 = az * t0 + bz,
       x0 = ax * t0^2 / 2 + bx * t0 + cx,
       z0 = az * t0^2 / 2 + bz * t0 + cz,
-      extension = 60.5 - cy
+      extension = 60.5 - cy,
+      release_speed = sqrt(bx^2 + by^2 + bz^2)
     )
   
   return(trackman_metrics)
