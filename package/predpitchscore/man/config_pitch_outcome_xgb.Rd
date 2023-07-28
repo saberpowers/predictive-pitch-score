@@ -5,7 +5,7 @@
 \alias{config_pitch_outcome_xgb}
 \title{Configuration for pitch outcome XGBoost models}
 \format{
-An object of class \code{list} of length 17.
+An object of class \code{list} of length 19.
 }
 \usage{
 config_pitch_outcome_xgb
