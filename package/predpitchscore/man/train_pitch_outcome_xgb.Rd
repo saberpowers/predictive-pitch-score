@@ -7,6 +7,7 @@
 train_pitch_outcome_xgb(
   data_subset,
   features,
+  tune,
   label = c("swing", "hbp", "strike", "contact", "fair", "hit"),
   verbose = 0,
   ...
@@ -16,6 +17,8 @@ train_pitch_outcome_xgb(
 \item{data_subset}{a dataframe of pitch data subsetted to pitches of interest}
 
 \item{features}{a character vector of column names from \code{data_subset} to be used as features}
+
+\item{tune}{logical, if true, tune the hyperparameters instead of fitting the model}
 
 \item{label}{a character string, one of "swing", "hbp", "strike", "contact", "fair", "hit",
 used to determine which tuning parmeters to use from \code{\link{config_pitch_outcome_xgb}}}

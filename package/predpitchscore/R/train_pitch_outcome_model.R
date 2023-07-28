@@ -8,12 +8,13 @@
 #' @param count_value dataframe of count_value from \code{\link{compute_count_value}},
 #'   not used but stashed in the model object for pitch value prediction
 #' @param stuff_only logical, fit model with only "Stuff" features (no pitch location)?
+#' @param tune logical, if true, tune the hyperparameters instead of fitting the model
 #' 
 #' @return a fitted "pitch_outcome_model" object
 #' 
 #' @export
 #' 
-train_pitch_outcome_model <- function(pitch, count_value, stuff_only = FALSE) {
+train_pitch_outcome_model <- function(pitch, count_value, stuff_only = FALSE, tune = FALSE) {
 
   # Wrangle training data ----
   
@@ -39,32 +40,32 @@ train_pitch_outcome_model <- function(pitch, count_value, stuff_only = FALSE) {
 
   xgb_swing <- regression_data |>
     dplyr::mutate(label = is_swing) |>
-    train_pitch_outcome_xgb(features = features, label = "swing")
+    train_pitch_outcome_xgb(features = features, tune = tune, label = "swing")
   
   xgb_hbp <- regression_data |>
     dplyr::filter(!is_swing) |>
     dplyr::mutate(label = is_hbp) |>
-    train_pitch_outcome_xgb(features = features, label = "hbp")
+    train_pitch_outcome_xgb(features = features, tune = tune, label = "hbp")
  
   xgb_strike <- regression_data |>
     dplyr::filter(!is_swing, !is_hbp) |>
     dplyr::mutate(label = is_strike) |>
-    train_pitch_outcome_xgb(features = features, label = "strike")
+    train_pitch_outcome_xgb(features = features, tune = tune, label = "strike")
   
   xgb_contact <- regression_data |>
     dplyr::filter(is_swing) |>
     dplyr::mutate(label = is_contact) |>
-    train_pitch_outcome_xgb(features = features, label = "contact")
+    train_pitch_outcome_xgb(features = features, tune = tune, label = "contact")
   
   xgb_fair <- regression_data |>
     dplyr::filter(is_swing, is_contact) |>
     dplyr::mutate(label = is_fair) |>
-    train_pitch_outcome_xgb(features = features, label = "fair")
+    train_pitch_outcome_xgb(features = features, tune = tune, label = "fair")
  
   xgb_hit <- regression_data |>
     dplyr::filter(is_swing, is_contact, is_fair, !is.na(hit_pred)) |>
     dplyr::mutate(label = hit_pred) |>
-    train_pitch_outcome_xgb(features = features, label = "hit")
+    train_pitch_outcome_xgb(features = features, tune = tune, label = "hit")
 
 
   # Combine models and return ----
@@ -100,22 +101,37 @@ config_pitch_outcome_xgb <- list(
   stuff_features = c("plate_vx", "plate_vy", "plate_vz", "ax", "ay", "az", "extension"),
 
   nrounds_swing = 150,
-  params_swing = list(eta = 0.05, gamma = 0.1, max_depth = 9, objective = "binary:logistic"),
+  params_swing = list(eta = 0.05, gamma = 0.1, max_depth = 9),
 
   nrounds_hbp = 150,
-  params_hbp = list(eta = 0.05, gamma = 0.1, max_depth = 9, objective = "binary:logistic"),
+  params_hbp = list(eta = 0.05, gamma = 0.1, max_depth = 9),
 
   nrounds_strike = 150,
-  params_strike = list(eta = 0.05, gamma = 0.1, max_depth = 9, objective = "binary:logistic"),
+  params_strike = list(eta = 0.05, gamma = 0.1, max_depth = 9),
 
   nrounds_contact = 150,
-  params_contact = list(eta = 0.05, gamma = 0.1, max_depth = 9, objective = "binary:logistic"),
+  params_contact = list(eta = 0.05, gamma = 0.1, max_depth = 9),
 
   nrounds_fair = 150,
-  params_fair = list(eta = 0.05, gamma = 0.1, max_depth = 9, objective = "binary:logistic"),
+  params_fair = list(eta = 0.05, gamma = 0.1, max_depth = 9),
 
   nrounds_hit = 150,
-  params_hit = list(eta = 0.05, gamma = 0.1, max_depth = 9, objective = "reg:squarederror")
+  params_hit = list(eta = 0.05, gamma = 0.1, max_depth = 9),
+
+  # Maximum nrounds for tuning
+  nrounds_max = 2000,
+
+  # List of parameter combinations to try for tuning
+  params_list = expand.grid(
+    nthread = 1,  # turn off xgb threading (threading across parameter sets is more efficient)
+    eta = c(0.01, 0.05, 0.3),
+    gamma = 0,
+    max_depth = c(3, 6, 9),
+    min_child_weight = c(10, 30, 100),
+    subsample = 0.65,
+    colsample_bytree = 0.7
+  ) |>
+    apply(MARGIN = 1, FUN = as.list)
 )
 
 
@@ -130,6 +146,7 @@ config_pitch_outcome_xgb <- list(
 #' @param features a character vector of column names from `data_subset` to be used as features
 #' @param label a character string, one of "swing", "hbp", "strike", "contact", "fair", "hit",
 #'   used to determine which tuning parmeters to use from \code{\link{config_pitch_outcome_xgb}}
+#' @param tune logical, if true, tune the hyperparameters instead of fitting the model
 #' @param verbose argument passed directly to `xgboost::xgboost`, defaults to silent
 #' @param ... additional parameters to pass to `xgboost::xgboost`
 #' 
@@ -137,24 +154,72 @@ config_pitch_outcome_xgb <- list(
 #' 
 train_pitch_outcome_xgb <- function(data_subset,
                                     features,
+                                    tune,
                                     label = c("swing", "hbp", "strike", "contact", "fair", "hit"),
                                     verbose = 0,
                                     ...) {
 
   label <- match.arg(label)
 
-  xgb <- xgboost::xgboost(
-    data = data_subset |>
-      dplyr::select(dplyr::all_of(features)) |>
-      as.matrix(),
-    label = data_subset$label,
-    nrounds = config_pitch_outcome_xgb[[glue::glue("nrounds_{label}")]],
-    params = config_pitch_outcome_xgb[[glue::glue("params_{label}")]],
-    verbose = verbose,
-    ...
+  response <- ifelse(label == "hit", "gaussian", "binomial")
+
+  covariate_matrix <- data_subset |>
+    dplyr::select(dplyr::all_of(features)) |>
+    as.matrix()
+  
+  if (tune) {
+
+    cv_result <- tune_xgb_parallel(
+      covariate_matrix = covariate_matrix,
+      label = data_subset$label,
+      params_list = config_pitch_outcome_xgb$params_list,
+      nrounds = config_pitch_outcome_xgb$nrounds_max,
+      response = response
+    )
+
+    test_error_column <- dplyr::case_when(
+      response == "gaussian" ~ "test_rmse_mean",
+      response == "binomial" ~ "test_logloss_mean"
+    )
+
+    # Extract best-fit parameters
+    cv_result_best <- cv_result |>
+      dplyr::arrange(!!rlang::sym(test_error_column)) |>
+      dplyr::slice(1)
+      
+    params <- cv_result_best |>
+      dplyr::select(
+        objective, eta, gamma, max_depth, min_child_weight, subsample, colsample_bytree
+      ) |>
+      as.list()
+
+    nrounds <- cv_result_best$iter
+
+  } else {
+    params <- config_pitch_outcome_xgb[[glue::glue("params_{label}")]]
+    nrounds <- config_pitch_outcome_xgb[[glue::glue("nrounds_{label}")]]
+  }
+
+  if (label == "hit") {
+    response <- "gaussian"
+    params$objective <- "reg:squarederror"
+  } else {
+    response <- "binomial"
+    params$objective <- "binary:logistic"
+  }
+
+  model <- xgboost::xgb.train(
+    params = params,
+    data = xgboost::xgb.DMatrix(data = covariate_matrix, label = data_subset$label),
+    nrounds = nrounds,
+    verbose = verbose
   )
 
-  return(xgb)
+  if (tune) {
+    model$cv_result <- cv_result
+  }
+
+  return(model)
 }
 
 

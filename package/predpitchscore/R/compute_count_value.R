@@ -10,6 +10,8 @@
 #' 
 #' @return a dataframe of `count_value` indexed by `balls` and `strikes`
 #' 
+#' @export
+#' 
 compute_count_value <- function(pitch, event, base_out_run_exp) {
 
   data <- pitch |>

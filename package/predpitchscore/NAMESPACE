@@ -2,6 +2,7 @@
 
 S3method(predict,pitch_outcome_model)
 export(compute_base_out_run_exp)
+export(compute_count_value)
 export(compute_pitch_value)
 export(extract_season)
 export(get_quadratic_coef)
