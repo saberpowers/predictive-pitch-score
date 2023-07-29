@@ -122,7 +122,7 @@ config_hit_outcome_xgb <- list(
   ),
 
   # Maximum nrounds for tuning
-  nrounds_max = 3000,
+  nrounds_max = 300,
 
   # List of parameter combinations to try for tuning
   params_list = expand.grid(

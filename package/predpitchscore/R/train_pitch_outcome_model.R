@@ -133,7 +133,7 @@ config_pitch_outcome_xgb <- list(
   params_value = list(eta = 0.05, gamma = 0.1, max_depth = 9),
 
   # Maximum nrounds for tuning
-  nrounds_max = 2000,
+  nrounds_max = 200,
 
   # List of parameter combinations to try for tuning
   params_list = expand.grid(
