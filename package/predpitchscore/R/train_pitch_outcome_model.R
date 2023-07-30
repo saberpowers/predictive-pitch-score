@@ -277,7 +277,8 @@ predict.pitch_outcome_model <- function(object, newpitch, ...) {
     prob_strike = predict(object$xgb$strike,  newdata[,colnames(newdata) %in% object$xgb$strike$feature_names]),
     prob_contact = predict(object$xgb$contact, newdata[,colnames(newdata) %in% object$xgb$contact$feature_names]),
     prob_fair = predict(object$xgb$fair, newdata = newdata[,colnames(newdata) %in% object$xgb$fair$feature_names]),
-    pred_hit = predict(object$xgb$hit, newdata = newdata[,colnames(newdata) %in% object$xgb$hit$feature_names])
+    pred_hit = predict(object$xgb$hit, newdata = newdata[,colnames(newdata) %in% object$xgb$hit$feature_names]),
+    pred_value = predict(object$xgb$value, newdata = newdata[,colnames(newdata) %in% object$xgb$value$feature_names])
   )
 
   pitch_value <- compute_pitch_value(pitch_pred = pitch_pred, count_value = object$count_value)
