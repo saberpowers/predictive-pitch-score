@@ -87,7 +87,7 @@ for(i in 1:24){
   }
   else{
     full_bsh_weights[i,1]<-i
-    full_bsh_weights[i,2]<-0
+    full_bsh_weights[i,2:3]<-0
   }
 }
 bsh_weights<-full_bsh_weights
