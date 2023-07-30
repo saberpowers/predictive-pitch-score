@@ -254,7 +254,7 @@ predict.pitch_outcome_model <- function(object, newpitch, ...) {
     get_quadratic_coef() |>
     get_outcome_model_features()
 
-  trackman_metrics <- pitch |>
+  trackman_metrics <- newpitch |>
     get_quadratic_coef() |>
     get_trackman_metrics() |>
     dplyr::select(release_speed, horz_break, induced_vert_break)
