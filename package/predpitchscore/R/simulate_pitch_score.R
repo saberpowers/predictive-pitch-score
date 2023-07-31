@@ -26,12 +26,25 @@ simulate_pitch_score <- function(pitcher_id, n, context, pitch_distrib_model, pi
   
   simmed_pitch$is_rhb <- as.numeric(simmed_pitch$bat_side=="R")
 
-  pred <- predict(
+    pred <- predict(
     object = pitch_outcome_model,
     newpitch = simmed_pitch
   )
-
-  pred_model <- as.numeric(colMeans(pred))
+  actual_hbp=pred$prob_hbp*(1-pred$prob_swing)
+  actual_strike=(1-pred$prob_swing-actual_hbp)*pred$prob_strike
+  actual_contact=pred$prob_swing*pred$prob_contact
+  actual_fair=pred$prob_fair*actual_contact
+  actual_hit=pred$pred_hit*actual_contact
+  mean_prob_swing=mean(pred$prob_swing)
+  mean_prob_hbp=sum(actual_hbp)/sum(1-pred$prob_swing)
+  mean_prob_strike=sum(actual_strike)/sum(1-pred$prob_swing-actual_hbp)
+  mean_prob_contact=sum(actual_contact)/sum(pred$prob_swing)
+  mean_prob_fair=sum(actual_fair)/sum(actual_contact)
+  mean_pred_hit=sum(actual_hit)/sum(actual_fair)
+  mean_pitch_value=mean(pred$pitch_value)
+  mean_pred_value=mean(pred$pred_value)
+  pred_model <- c(mean_prob_swing,mean_prob_hbp,mean_prob_strike,mean_prob_contact,
+                  mean_prob_fair,mean_pred_hit,mean_pitch_value,mean_pred_value)
   
   return(pred_model)
 }
