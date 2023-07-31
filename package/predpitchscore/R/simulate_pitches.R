@@ -118,7 +118,7 @@ simulate_pitches <- function(model, pitcher_id, n, context) {
       # Reverse x-coordinate flipping for LHP
       value = ifelse(pitch_hand == "L" & pitch_char %in% c("ax", "bx", "cx"), -1, 1) * value
     ) |>
-    dplyr::select(sim_num, bat_side, pre_balls, pre_strikes, pitch_char, value) |>
+    dplyr::select(sim_num, bat_side, pre_balls, pre_strikes, pitch_char, value, strike_zone_top, strike_zone_bottom) |>
     tidyr::pivot_wider(names_from = pitch_char, values_from = value)
 
   return(simmed_pitch)

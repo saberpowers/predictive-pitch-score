@@ -87,7 +87,7 @@ for(i in 1:24){
   }
   else{
     full_bsh_weights[i,1]<-i
-    full_bsh_weights[i,2]<-0
+    full_bsh_weights[i,2:3]<-0
   }
 }
 bsh_weights<-full_bsh_weights
@@ -237,7 +237,7 @@ initialize_pitch_distrib_model <- function(data_standardized, pitch_char_vec) {
   full_bsh_params<-bsh_params
   for(i in 1:24){
     row<-filter(bsh_params,bsh_num==i)
-    if(length(row$bshnum)==1){
+    if(length(row$bsh_num)==1){
       full_bsh_params[i,]=row
     }
     else{
