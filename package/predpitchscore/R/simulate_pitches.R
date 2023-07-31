@@ -93,7 +93,7 @@ simulate_pitches <- function(model, pitcher_id, n, context) {
     ) |>
     dplyr::left_join(model$pitcher_hand, by = "pitcher_id") |>
     dplyr::mutate(
-      same_hand = as.numeric(pitch_hand == bat_side),
+      same_hand = as.numeric(pitch_hand.x == bat_side),
       bsh_num = same_hand * 12 + pre_balls * 3 + pre_strikes + 1
     ) |>
     dplyr::left_join(pitcher_coef, by = c("pitcher_id", "pitch_char")) |>
@@ -116,7 +116,7 @@ simulate_pitches <- function(model, pitcher_id, n, context) {
       # Then convert that player-specific z-score to an actual number using league mean and SD
       value = league_mean + league_sd * player_z_score,
       # Reverse x-coordinate flipping for LHP
-      value = ifelse(pitch_hand == "L" & pitch_char %in% c("ax", "bx", "cx"), -1, 1) * value
+      value = ifelse(pitch_hand.x == "L" & pitch_char %in% c("ax", "bx", "cx"), -1, 1) * value
     ) |>
     dplyr::select(sim_num, bat_side, pre_balls, pre_strikes, pitch_char, value, strike_zone_top, strike_zone_bottom) |>
     tidyr::pivot_wider(names_from = pitch_char, values_from = value)
