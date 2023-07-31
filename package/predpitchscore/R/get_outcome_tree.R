@@ -6,6 +6,8 @@
 #' 
 #' @return dataframe with logical columns `is_swing`, `is_hbp`, `is_strike`, `is_contact`, `is_fair`
 #' 
+#' @export
+#' 
 get_outcome_tree <- function(description) {
 
   outcome_tree <- tibble::tibble(

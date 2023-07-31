@@ -32,7 +32,7 @@ tune_xgb_parallel <- function(covariate_matrix,
         params = params,
         data = xgboost::xgb.DMatrix(data = covariate_matrix, label = label),
         nrounds = nrounds,
-        nfold = 8,
+        nfold = 5,
         metrics = dplyr::case_when(
           response == "gaussian" ~ "rmse",
           response == "binomial" ~ "logloss"

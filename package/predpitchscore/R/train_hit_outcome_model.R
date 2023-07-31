@@ -109,14 +109,14 @@ train_hit_outcome_model <- function(pitch, event, base_out_run_exp, tune = FALSE
 #' 
 config_hit_outcome_xgb <- list(
 
-  nrounds = 2000,
+  nrounds = 1000,
 
   params = list(
     objective = "reg:squarederror",
-    eta = 0.01,
+    eta = 0.05,
     gamma = 0,
-    max_depth = 8,
-    min_child_weight = 400,
+    max_depth = 9,
+    min_child_weight = 100,
     subsample = 0.65,
     colsample_bytree = 0.7
   ),

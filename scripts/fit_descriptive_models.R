@@ -2,7 +2,10 @@
 library(predpitchscore)
 
 year <- 2022
-tune <- TRUE
+fit_hit_model <- TRUE
+pitch_components <- c("swing", "hbp", "strike", "contact", "fair", "hit", "value"),
+stuff_components <- c("swing", "hbp", "strike", "contact", "fair", "hit", "value"),
+tune <- FALSE
 verbose <- TRUE
 
 # Load the data ----
@@ -29,12 +32,16 @@ count_value <- compute_count_value(
   base_out_run_exp = base_out_run_exp
 )
 
-hit_outcome_model <- train_hit_outcome_model(
-  pitch = pitch,
-  event = event,
-  base_out_run_exp = base_out_run_exp,
-  tune = tune
-)
+if (fit_hit_model) {
+  hit_outcome_model <- train_hit_outcome_model(
+    pitch = pitch,
+    event = event,
+    base_out_run_exp = base_out_run_exp,
+    tune = tune
+  )
+} else {
+  hit_outcome_model <- readRDS("models/hit_outcome_model.rds")
+}
 
 pitch$hit_pred[!is.na(pitch$launch_speed)] <- hit_outcome_model$pred
 pitch$is_rhb <- pitch |>
@@ -61,12 +68,14 @@ if (verbose) {
 pitch_outcome_model <- train_pitch_outcome_model(
   pitch = pitch,
   count_value = count_value,
+  components = pitch_components,
   tune = tune
 )
 
-pitch_stuff_outcome_model <- train_pitch_outcome_model(
+stuff_model <- train_pitch_outcome_model(
   pitch = pitch,
   count_value = count_value,
+  components = stuff_components,
   stuff_only = TRUE
 )
 
@@ -81,4 +90,4 @@ write.csv(base_out_run_exp, file = "models/base_out_run_exp.csv", row.names = FA
 write.csv(count_value, file = "models/count_value.csv", row.names = FALSE)
 saveRDS(hit_outcome_model, file = "models/hit_outcome_model.rds")
 saveRDS(pitch_outcome_model, file = "models/pitch_outcome_model.rds")
-saveRDS(pitch_stuff_outcome_model, file = "models/pitch_stuff_outcome_model.rds")
+saveRDS(stuff_model, file = "models/stuff_model.rds")

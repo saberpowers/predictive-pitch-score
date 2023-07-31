@@ -7,6 +7,7 @@
 #' @param pitch dataframe of pitch data from \code{\link{extract_season}}
 #' @param count_value dataframe of count_value from \code{\link{compute_count_value}},
 #'   not used but stashed in the model object for pitch value prediction
+#' @param components character vector specifying which component models to fit
 #' @param stuff_only logical, fit model with only "Stuff" features (no pitch location)?
 #' @param tune logical, if true, tune the hyperparameters instead of fitting the model
 #' 
@@ -14,7 +15,11 @@
 #' 
 #' @export
 #' 
-train_pitch_outcome_model <- function(pitch, count_value, stuff_only = FALSE, tune = FALSE) {
+train_pitch_outcome_model <- function(pitch,
+                                      count_value,
+                                      components = c("swing", "hbp", "strike", "contact", "fair", "hit", "value"),
+                                      stuff_only = FALSE,
+                                      tune = FALSE) {
 
   # Wrangle training data ----
   
@@ -43,39 +48,67 @@ train_pitch_outcome_model <- function(pitch, count_value, stuff_only = FALSE, tu
     features <- with(config_pitch_outcome_xgb, c(context_features, pitch_features))
   }
 
-  xgb_swing <- regression_data |>
-    dplyr::mutate(label = is_swing) |>
-    train_pitch_outcome_xgb(features = features, tune = tune, label = "swing")
+  if ("swing" %in% components) {
+    xgb_swing <- regression_data |>
+      dplyr::mutate(label = is_swing) |>
+      train_pitch_outcome_xgb(features = features, tune = tune, label = "swing")
+  } else {
+    xgb_swing <- NULL
+  }
   
-  xgb_hbp <- regression_data |>
-    dplyr::filter(!is_swing) |>
-    dplyr::mutate(label = is_hbp) |>
-    train_pitch_outcome_xgb(features = features, tune = tune, label = "hbp")
- 
-  xgb_strike <- regression_data |>
-    dplyr::filter(!is_swing, !is_hbp) |>
-    dplyr::mutate(label = is_strike) |>
-    train_pitch_outcome_xgb(features = features, tune = tune, label = "strike")
-  
-  xgb_contact <- regression_data |>
-    dplyr::filter(is_swing) |>
-    dplyr::mutate(label = is_contact) |>
-    train_pitch_outcome_xgb(features = features, tune = tune, label = "contact")
-  
-  xgb_fair <- regression_data |>
-    dplyr::filter(is_swing, is_contact) |>
-    dplyr::mutate(label = is_fair) |>
-    train_pitch_outcome_xgb(features = features, tune = tune, label = "fair")
- 
-  xgb_hit <- regression_data |>
-    dplyr::filter(is_swing, is_contact, is_fair, !is.na(hit_pred)) |>
-    dplyr::mutate(label = hit_pred) |>
-    train_pitch_outcome_xgb(features = features, tune = tune, label = "hit")
+  if ("hbp" %in% components) {
+    xgb_hbp <- regression_data |>
+      dplyr::filter(!is_swing) |>
+      dplyr::mutate(label = is_hbp) |>
+      train_pitch_outcome_xgb(features = features, tune = tune, label = "hbp")
+  } else {
+    xgb_hbp <- NULL
+  }
 
-  xgb_value <- regression_data |>
-    dplyr::filter(!is.na(true_value)) |>
-    dplyr::mutate(label = true_value) |>
-    train_pitch_outcome_xgb(features = features, tune = tune, label = "value")
+  if ("strike" %in% components) {
+    xgb_strike <- regression_data |>
+      dplyr::filter(!is_swing, !is_hbp) |>
+      dplyr::mutate(label = is_strike) |>
+      train_pitch_outcome_xgb(features = features, tune = tune, label = "strike")
+  } else {
+    xgb_strike <- NULL
+  }
+  
+  if ("contact" %in% components) {
+    xgb_contact <- regression_data |>
+      dplyr::filter(is_swing) |>
+      dplyr::mutate(label = is_contact) |>
+      train_pitch_outcome_xgb(features = features, tune = tune, label = "contact")
+  } else {
+    xgb_contact <- NULL
+  }
+  
+  if ("fair" %in% components) {
+    xgb_fair <- regression_data |>
+      dplyr::filter(is_swing, is_contact) |>
+      dplyr::mutate(label = is_fair) |>
+      train_pitch_outcome_xgb(features = features, tune = tune, label = "fair")
+  } else {
+    xgb_fair <- NULL
+  }
+  
+  if ("hit" %in% components) {
+    xgb_hit <- regression_data |>
+      dplyr::filter(is_swing, is_contact, is_fair, !is.na(hit_pred)) |>
+      dplyr::mutate(label = hit_pred) |>
+      train_pitch_outcome_xgb(features = features, tune = tune, label = "hit")
+  } else {
+    xgb_hit <- NULL
+  }
+
+  if ("value" %in% components) {
+    xgb_value <- regression_data |>
+      dplyr::filter(!is.na(true_value)) |>
+      dplyr::mutate(label = true_value) |>
+      train_pitch_outcome_xgb(features = features, tune = tune, label = "value")
+  } else {
+    xgb_value <- NULL
+  }
 
 
   # Combine models and return ----
@@ -111,26 +144,26 @@ config_pitch_outcome_xgb <- list(
   pitch_features = c("plate_x", "plate_z", "plate_vx", "plate_vy", "plate_vz", "ax", "ay", "az", "extension"),
   stuff_features = c("horz_break","induced_vert_break","release_speed","z0", "ay", "x0", "extension"),
 
-  nrounds_swing = 150,
-  params_swing = list(eta = 0.05, gamma = 0.1, max_depth = 9),
+  nrounds_swing = 1000,
+  params_swing = list(eta = 0.01, gamma = 0, max_depth = 6, min_child_weight = 100, subsample = 0.65, colsample_bytree = 0.7),
 
-  nrounds_hbp = 150,
-  params_hbp = list(eta = 0.05, gamma = 0.1, max_depth = 9),
+  nrounds_hbp = 1000,
+  params_hbp = list(eta = 0.01, gamma = 0, max_depth = 6, min_child_weight = 100, subsample = 0.65, colsample_bytree = 0.7),
 
-  nrounds_strike = 150,
-  params_strike = list(eta = 0.05, gamma = 0.1, max_depth = 9),
+  nrounds_strike = 1000,
+  params_strike = list(eta = 0.01, gamma = 0, max_depth = 6, min_child_weight = 100, subsample = 0.65, colsample_bytree = 0.7),
 
-  nrounds_contact = 150,
-  params_contact = list(eta = 0.05, gamma = 0.1, max_depth = 9),
+  nrounds_contact = 1000,
+  params_contact = list(eta = 0.01, gamma = 0, max_depth = 6, min_child_weight = 100, subsample = 0.65, colsample_bytree = 0.7),
 
-  nrounds_fair = 150,
-  params_fair = list(eta = 0.05, gamma = 0.1, max_depth = 9),
+  nrounds_fair = 1000,
+  params_fair = list(eta = 0.01, gamma = 0, max_depth = 6, min_child_weight = 100, subsample = 0.65, colsample_bytree = 0.7),
 
-  nrounds_hit = 150,
-  params_hit = list(eta = 0.05, gamma = 0.1, max_depth = 9),
+  nrounds_hit = 1000,
+  params_hit = list(eta = 0.01, gamma = 0, max_depth = 6, min_child_weight = 100, subsample = 0.65, colsample_bytree = 0.7),
 
-  nrounds_value = 150,
-  params_value = list(eta = 0.05, gamma = 0.1, max_depth = 9),
+  nrounds_value = 2000,
+  params_value = list(eta = 0.01, gamma = 0, max_depth = 6, min_child_weight = 100, subsample = 0.65, colsample_bytree = 0.7),
 
   # Maximum nrounds for tuning
   nrounds_max = 2000,
