@@ -17,7 +17,7 @@
 simulate_pitch_score <- function(pitcher_id, n, context, pitch_distrib_model, pitch_outcome_model) {
 
   simmed_pitch <- simulate_pitches(
-    pitch_distrib_model = pitch_distrib_model,
+    model = pitch_distrib_model,
     pitcher_id = pitcher_id,
     n = n,
     context = context
