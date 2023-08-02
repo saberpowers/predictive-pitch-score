@@ -144,8 +144,8 @@ config_pitch_outcome_xgb <- list(
   pitch_features = c("plate_x", "plate_z", "plate_vx", "plate_vy", "plate_vz", "ax", "ay", "az", "extension"),
   stuff_features = c("horz_break","induced_vert_break","release_speed","z0", "ay", "x0", "extension"),
 
-  nrounds_swing = 1000,
-  params_swing = list(eta = 0.01, gamma = 0, max_depth = 6, min_child_weight = 100, subsample = 0.65, colsample_bytree = 0.7),
+  nrounds_swing = 2000,
+  params_swing = list(eta = 0.05, gamma = 0, max_depth = 9, min_child_weight = 10, subsample = 0.65, colsample_bytree = 0.7),
 
   nrounds_hbp = 1000,
   params_hbp = list(eta = 0.01, gamma = 0, max_depth = 6, min_child_weight = 100, subsample = 0.65, colsample_bytree = 0.7),
@@ -305,13 +305,27 @@ predict.pitch_outcome_model <- function(object, newpitch, ...) {
     is_rhb = newpitch$is_rhb,
     strike_zone_top = newpitch$strike_zone_top,
     strike_zone_bottom = newpitch$strike_zone_bottom,
-    prob_swing = xgboost:::predict.xgb.Booster(object$xgb$swing, newdata = newdata[,colnames(newdata) %in% object$xgb$swing$feature_names]),
-    prob_hbp = xgboost:::predict.xgb.Booster(object$xgb$hbp, newdata =  newdata[,colnames(newdata) %in% object$xgb$hbp$feature_names]),
-    prob_strike = xgboost:::predict.xgb.Booster(object$xgb$strike,  newdata[,colnames(newdata) %in% object$xgb$strike$feature_names]),
-    prob_contact = xgboost:::predict.xgb.Booster(object$xgb$contact, newdata[,colnames(newdata) %in% object$xgb$contact$feature_names]),
-    prob_fair = xgboost:::predict.xgb.Booster(object$xgb$fair, newdata = newdata[,colnames(newdata) %in% object$xgb$fair$feature_names]),
-    pred_hit = xgboost:::predict.xgb.Booster(object$xgb$hit, newdata = newdata[,colnames(newdata) %in% object$xgb$hit$feature_names]),
-    pred_value = xgboost:::predict.xgb.Booster(object$xgb$value, newdata = newdata[,colnames(newdata) %in% object$xgb$value$feature_names])
+    prob_swing = xgboost:::predict.xgb.Booster(object$xgb$swing,
+      newdata = newdata[,colnames(newdata) %in% object$xgb$swing$feature_names, drop = FALSE]
+    ),
+    prob_hbp = xgboost:::predict.xgb.Booster(object$xgb$hbp,
+      newdata = newdata[,colnames(newdata) %in% object$xgb$hbp$feature_names, drop = FALSE]
+    ),
+    prob_strike = xgboost:::predict.xgb.Booster(object$xgb$strike,
+      newdata[,colnames(newdata) %in% object$xgb$strike$feature_names, drop = FALSE]
+    ),
+    prob_contact = xgboost:::predict.xgb.Booster(object$xgb$contact,
+      newdata[,colnames(newdata) %in% object$xgb$contact$feature_names, drop = FALSE]
+    ),
+    prob_fair = xgboost:::predict.xgb.Booster(object$xgb$fair,
+      newdata = newdata[,colnames(newdata) %in% object$xgb$fair$feature_names, drop = FALSE]
+    ),
+    pred_hit = xgboost:::predict.xgb.Booster(object$xgb$hit,
+      newdata = newdata[,colnames(newdata) %in% object$xgb$hit$feature_names, drop = FALSE]
+    ),
+    pred_value = xgboost:::predict.xgb.Booster(object$xgb$value,
+      newdata = newdata[,colnames(newdata) %in% object$xgb$value$feature_names, drop = FALSE]
+    )
   )
 
   pitch_value <- compute_pitch_value(pitch_pred = pitch_pred, count_value = object$count_value)
