@@ -71,6 +71,8 @@ simulate_pitches <- function(model, pitcher_id, n, context) {
   # Simulate pitches ----
 
   simmed_context <- context |>
+    # Make sure `context` has exactly the columns we need
+    dplyr::select(bat_side, pre_balls, pre_strikes, strike_zone_top, strike_zone_bottom) |>
     # Sample n different contexts with replacement
     dplyr::slice(sample(1:dplyr::n(), size = n, replace = TRUE)) |>
     dplyr::mutate(sim_num = 1:n) |>
