@@ -31,10 +31,10 @@ get_trackman_metrics <- function(data) {
       plate_z_line = bz * plate_time + cz,
       plate_z_gravity = gravity * plate_time^2 / 2 + bz * plate_time + cz,
 
-      # I'm reconstructing these from memory, so not 100% sure they're correct
-      horz_break = plate_x - plate_x_line,
-      vert_break = plate_z - plate_z_line,
-      induced_vert_break = plate_z - plate_z_gravity,
+      # SP: I'm reconstructing these from memory, so not 100% sure they're correct
+      horz_break = 12 * (plate_x - plate_x_line),               # measured in inches
+      vert_break = 12 * (plate_z - plate_z_line),               # measured in inches
+      induced_vert_break = 12 * (plate_z - plate_z_gravity),    # measured in inches
 
       # Also recover the TrackMan metrics necessary for calculating the quadratic coefficients
       # t0 is the time when y = 50 (necessary for calculating velocity and x/z location at time t0)
