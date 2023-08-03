@@ -10,22 +10,24 @@ pitch_distrib_model <- readRDS("models/distribution/FF/2022.rds")
 
 data <- pitch |>
   dplyr::left_join(event, by = c("year", "game_id", "event_index")) |>
-  dplyr::filter(pitch_type == "FF") |>
+  dplyr::filter(!is.na(extension), pitch_type == "FF") |>
   dplyr::mutate(is_rhb = as.numeric(bat_side == "R"))
 
 pred <- predict.pitch_outcome_model(pitch_outcome_model, newpitch = data) |>
   tibble::add_column(pitcher_id = data$pitcher_id, .before = 1)
 
 stuff <- predict.pitch_outcome_model(stuff_model, newpitch = data) |>
-  dplyr::transmute(stuff = pitch_value)
+  dplyr::transmute(stuff = pred_value)
 
 pitcher_ranking <- pred |>
   dplyr::bind_cols(stuff) |>
   dplyr::group_by(pitcher_id) |>
   dplyr::summarize(pitches = dplyr::n(), desc_pitch_score = mean(pitch_value), stuff = mean(stuff)) |>
   dplyr::inner_join(pitch_distrib_model$pitcher_hand, by = "pitcher_id") |>
-  dplyr::arrange(desc_pitch_score)
+  dplyr::arrange(desc_pitch_score) |>
+  dplyr::filter(pitches > 100)
 
+.time <- Sys.time()
 # Calculate the predictive pitch score for all pitchers in `pitcher_ranking`
 future::plan(strategy = future::multisession, workers = parallel::detectCores())
 pitcher_ranking$pred_pitch_score <- future.apply::future_lapply(
@@ -39,6 +41,9 @@ pitcher_ranking$pred_pitch_score <- future.apply::future_lapply(
   future.seed = TRUE
 )
 future::plan(strategy = future::sequential)
+print(Sys.time() - .time)
+
+pitcher_ranking$pred_pitch_score <- sapply(pitcher_ranking$pred_pitch_score, function(x) x[7])
 
 {
   pdf("figures/temp.pdf")
@@ -58,7 +63,7 @@ future::plan(strategy = future::sequential)
       y = 2000 * pred_pitch_score,
       label = pitcher_id,
       cex = 0.5,
-      col = "dodgerblue"
+      col = ifelse(pitches > 200, "dodgerblue", "darkorange")
     )
   )
   axis(1)
@@ -88,21 +93,27 @@ sim_pitcher <- simulate_pitches(
   get_trackman_metrics()
 
 
-{
-  png("figures/sim_pitcher.png")
-  sim_pitcher |>
-    with(MASS::kde2d(x = plate_x, y = plate_z, h = 0.6, n = 400, lims = c(-3, 3, 1, 4))) |>
-    image(col = viridis::viridis_pal()(400), axes = FALSE)
-  graphics::rect(
-    xleft = -17 / 12,
-    ybottom = mean(data$strike_zone_bottom),
-    xright = 17 / 12,
-    ytop = mean(data$strike_zone_top),
-    border = "white",
-    lty = 2,
-    lwd = 4
-  )
-  data_pitcher |>
-    with(points(plate_x, plate_z, col = "white"))
+id <- 665645
+for (side in c("L", "R")) {
+  png(glue::glue("figures/distrib/{id}_FF_{side}.png"), width = 666, height = 666)
+  par(mfrow = c(3, 4), mar = c(1, 1, 1, 1))
+  for (strikes in 0:2) {
+    for (balls in 0:3) {
+      visualize_pitch_distrib(
+        model = pitch_distrib_model,
+        pitcher_id = id,
+        data = data |>
+          dplyr::filter(
+            pitcher_id == id,
+            bat_side == side,
+            pre_balls == balls,
+            pre_strikes == strikes
+          ),
+        bat_side = side,
+        pre_balls = balls,
+        pre_strikes = strikes
+      )
+    }
+  }
   dev.off()
 }
