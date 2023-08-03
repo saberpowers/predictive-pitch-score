@@ -3,8 +3,8 @@ library(predpitchscore)
 
 year <- 2022
 fit_hit_model <- TRUE
-pitch_components <- c("swing", "hbp", "strike", "contact", "fair", "hit", "value"),
-stuff_components <- c("swing", "hbp", "strike", "contact", "fair", "hit", "value"),
+pitch_components <- c("swing", "hbp", "strike", "contact", "fair", "hit", "value")
+stuff_components <- c("swing", "hbp", "strike", "contact", "fair", "hit", "value")
 tune <- FALSE
 verbose <- TRUE
 
