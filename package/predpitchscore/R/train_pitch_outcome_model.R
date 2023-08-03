@@ -37,7 +37,15 @@ train_pitch_outcome_model <- function(pitch,
     # Make sure we don't duplicate columns
     dplyr::select(pre_balls, pre_strikes, is_rhb, strike_zone_top, strike_zone_bottom, hit_pred, true_value, x0, z0) |>
     dplyr::bind_cols(outcome_model_features, outcome_tree, trackman_metrics) |>
-    dplyr::filter(!is.na(extension))
+    # NOTE: Somehow, the batter's swing decision leaks into the strike zone top/bottom variables.
+    # It is approximately true that when strike zone top/bottom is rounded to two digits, the
+    # the batter swings, and otherwise the batter does not swing. Here we round srike zone
+    # top/bottom to two digits to obviate this information leakage.
+    dplyr::mutate(
+      strike_zone_top = round(strike_zone_top, 2),
+      strike_zone_bottom = round(strike_zone_bottom, 2)
+    ) |>
+    dplyr::filter(!is.na(extension), strike_zone_top < 4.25, strike_zone_bottom > 1)
   
 
   # Train xgboost models ----
@@ -144,14 +152,14 @@ config_pitch_outcome_xgb <- list(
   pitch_features = c("plate_x", "plate_z", "plate_vx", "plate_vy", "plate_vz", "ax", "ay", "az", "extension"),
   stuff_features = c("horz_break","induced_vert_break","release_speed","z0", "ay", "x0", "extension"),
 
-  nrounds_swing = 2000,
+  nrounds_swing = 1500,
   params_swing = list(eta = 0.05, gamma = 0, max_depth = 9, min_child_weight = 10, subsample = 0.65, colsample_bytree = 0.7),
 
   nrounds_hbp = 1000,
   params_hbp = list(eta = 0.01, gamma = 0, max_depth = 6, min_child_weight = 100, subsample = 0.65, colsample_bytree = 0.7),
 
-  nrounds_strike = 1000,
-  params_strike = list(eta = 0.01, gamma = 0, max_depth = 6, min_child_weight = 100, subsample = 0.65, colsample_bytree = 0.7),
+  nrounds_strike = 2000,
+  params_strike = list(eta = 0.01, gamma = 0, max_depth = 9, min_child_weight = 10, subsample = 0.65, colsample_bytree = 0.7),
 
   nrounds_contact = 1000,
   params_contact = list(eta = 0.01, gamma = 0, max_depth = 6, min_child_weight = 100, subsample = 0.65, colsample_bytree = 0.7),
@@ -178,6 +186,7 @@ config_pitch_outcome_xgb <- list(
     subsample = 0.65,
     colsample_bytree = 0.7
   ) |>
+    dplyr::arrange(-max_depth, min_child_weight) |>   # work on longest training time first
     apply(MARGIN = 1, FUN = as.list)
 )
 
