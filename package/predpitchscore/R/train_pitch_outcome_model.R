@@ -7,7 +7,7 @@
 #' @param pitch dataframe of pitch data from \code{\link{extract_season}}
 #' @param count_value dataframe of count_value from \code{\link{compute_count_value}},
 #'   not used but stashed in the model object for pitch value prediction
-#' @param components character vector specifying which component models to fit
+#' @param models_to_fit character vector specifying which component models to fit
 #' @param stuff_only logical, fit model with only "Stuff" features (no pitch location)?
 #' @param tune logical, if true, tune the hyperparameters instead of fitting the model
 #' 
@@ -17,7 +17,10 @@
 #' 
 train_pitch_outcome_model <- function(pitch,
                                       count_value,
-                                      components = c("swing", "hbp", "strike", "contact", "fair", "hit", "value"),
+                                      models_to_fit = c(
+                                        "pitch_swing", "pitch_hbp", "pitch_strike", "pitch_contact",
+                                        "pitch_fair", "pitch_hit", "pitch_value"
+                                      ),
                                       stuff_only = FALSE,
                                       tune = FALSE) {
 
@@ -51,12 +54,12 @@ train_pitch_outcome_model <- function(pitch,
   # Train xgboost models ----
 
   if (stuff_only) {
-    features <- with(config_pitch_outcome_xgb, c(context_features, stuff_features))
+    features <- with(config_pitch_outcome_xgb, c(features_context, features_stuff))
   } else {
-    features <- with(config_pitch_outcome_xgb, c(context_features, pitch_features))
+    features <- with(config_pitch_outcome_xgb, c(features_context, features_pitch))
   }
 
-  if ("swing" %in% components) {
+  if ("swing" %in% models_to_fit) {
     xgb_swing <- regression_data |>
       dplyr::mutate(label = is_swing) |>
       train_pitch_outcome_xgb(features = features, tune = tune, label = "swing")
@@ -64,7 +67,7 @@ train_pitch_outcome_model <- function(pitch,
     xgb_swing <- NULL
   }
   
-  if ("hbp" %in% components) {
+  if ("hbp" %in% models_to_fit) {
     xgb_hbp <- regression_data |>
       dplyr::filter(!is_swing) |>
       dplyr::mutate(label = is_hbp) |>
@@ -73,7 +76,7 @@ train_pitch_outcome_model <- function(pitch,
     xgb_hbp <- NULL
   }
 
-  if ("strike" %in% components) {
+  if ("strike" %in% models_to_fit) {
     xgb_strike <- regression_data |>
       dplyr::filter(!is_swing, !is_hbp) |>
       dplyr::mutate(label = is_strike) |>
@@ -82,7 +85,7 @@ train_pitch_outcome_model <- function(pitch,
     xgb_strike <- NULL
   }
   
-  if ("contact" %in% components) {
+  if ("contact" %in% models_to_fit) {
     xgb_contact <- regression_data |>
       dplyr::filter(is_swing) |>
       dplyr::mutate(label = is_contact) |>
@@ -91,7 +94,7 @@ train_pitch_outcome_model <- function(pitch,
     xgb_contact <- NULL
   }
   
-  if ("fair" %in% components) {
+  if ("fair" %in% models_to_fit) {
     xgb_fair <- regression_data |>
       dplyr::filter(is_swing, is_contact) |>
       dplyr::mutate(label = is_fair) |>
@@ -100,7 +103,7 @@ train_pitch_outcome_model <- function(pitch,
     xgb_fair <- NULL
   }
   
-  if ("hit" %in% components) {
+  if ("hit" %in% models_to_fit) {
     xgb_hit <- regression_data |>
       dplyr::filter(is_swing, is_contact, is_fair, !is.na(hit_pred)) |>
       dplyr::mutate(label = hit_pred) |>
@@ -109,7 +112,7 @@ train_pitch_outcome_model <- function(pitch,
     xgb_hit <- NULL
   }
 
-  if ("value" %in% components) {
+  if ("value" %in% models_to_fit) {
     xgb_value <- regression_data |>
       dplyr::filter(!is.na(true_value)) |>
       dplyr::mutate(label = true_value) |>
@@ -148,9 +151,9 @@ train_pitch_outcome_model <- function(pitch,
 #' 
 config_pitch_outcome_xgb <- list(
 
-  context_features = c("pre_balls", "pre_strikes", "is_rhb", "strike_zone_top", "strike_zone_bottom"),
-  pitch_features = c("plate_x", "plate_z", "plate_vx", "plate_vy", "plate_vz", "ax", "ay", "az", "extension"),
-  stuff_features = c("horz_break","induced_vert_break","release_speed","z0", "ay", "x0", "extension"),
+  features_context = c("pre_balls", "pre_strikes", "is_rhb", "strike_zone_top", "strike_zone_bottom"),
+  features_pitch = c("plate_x", "plate_z", "plate_vx", "plate_vy", "plate_vz", "ax", "ay", "az", "extension"),
+  features_stuff = c("release_x", "release_y", "release_z", "release_speed", "induced_vert_break", "horz_break"),
 
   nrounds_swing = 1500,
   params_swing = list(eta = 0.05, gamma = 0, max_depth = 9, min_child_weight = 10, subsample = 0.65, colsample_bytree = 0.7),
@@ -169,6 +172,9 @@ config_pitch_outcome_xgb <- list(
 
   nrounds_hit = 1000,
   params_hit = list(eta = 0.01, gamma = 0, max_depth = 6, min_child_weight = 100, subsample = 0.65, colsample_bytree = 0.7),
+
+  nrounds_stuff = 1000,
+  params_stuff = list(eta = 0.01, gamma = 0, max_depth = 6, min_child_weight = 100, subsample = 0.65, colsample_bytree = 0.7),
 
   nrounds_value = 2000,
   params_value = list(eta = 0.01, gamma = 0, max_depth = 6, min_child_weight = 100, subsample = 0.65, colsample_bytree = 0.7),
@@ -211,13 +217,13 @@ config_pitch_outcome_xgb <- list(
 train_pitch_outcome_xgb <- function(data_subset,
                                     features,
                                     tune,
-                                    label = c("swing", "hbp", "strike", "contact", "fair", "hit", "value"),
+                                    label = c("swing", "hbp", "strike", "contact", "fair", "hit", "stuff", "value"),
                                     verbose = 0,
                                     ...) {
 
   label <- match.arg(label)
 
-  response <- ifelse(label %in% c("hit", "value"), "gaussian", "binomial")
+  response <- ifelse(label %in% c("hit", "stuff", "value"), "gaussian", "binomial")
 
   covariate_matrix <- data_subset |>
     dplyr::select(dplyr::all_of(features)) |>
@@ -256,7 +262,7 @@ train_pitch_outcome_xgb <- function(data_subset,
     nrounds <- config_pitch_outcome_xgb[[glue::glue("nrounds_{label}")]]
   }
 
-  if (label %in% c("hit", "value")) {
+  if (label %in% c("hit", "stuff", "value")) {
     response <- "gaussian"
     params$objective <- "reg:squarederror"
   } else {
@@ -347,4 +353,41 @@ predict.pitch_outcome_model <- function(object, newpitch, ...) {
     )
 
   return(pred)
+}
+
+
+
+
+#' Train Stuff model
+#' 
+#' This function trains a gradient boosting model to predict pitch value (which is itself a
+#' prediction from the pitch outcome model) from "Stuff" characteristics (no location or context).
+#' 
+#' @param pitch dataframe of pitch data from \code{\link{extract_season}}
+#' @param pitch_value numeric vector of pitch values to regress onto Stuff characteristics
+#' @param tune logical, if true, tune the hyperparameters instead of fitting the model
+#' 
+#' @return a fitted xgb.Booster object
+#' 
+#' @export
+#' 
+train_stuff_model <- function(pitch,
+                              pitch_value,
+                              tune = FALSE) {
+
+  regression_data <- pitch |>
+    get_quadratic_coef() |>
+    get_trackman_metrics() |>
+    dplyr::select(dplyr::all_of(config_pitch_outcome_xgb$features_stuff)) |>
+    dplyr::mutate(label = pitch_value) |>
+    tidyr::drop_na(dplyr::everything())
+
+  model <- regression_data |>
+    train_pitch_outcome_xgb(
+      features = config_pitch_outcome_xgb$features_stuff,
+      tune = tune,
+      label = "stuff"
+    )
+
+  return(model)
 }
