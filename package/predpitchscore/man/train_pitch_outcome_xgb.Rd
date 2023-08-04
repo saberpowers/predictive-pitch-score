@@ -8,7 +8,7 @@ train_pitch_outcome_xgb(
   data_subset,
   features,
   tune,
-  label = c("swing", "hbp", "strike", "contact", "fair", "hit", "value"),
+  label = c("swing", "hbp", "strike", "contact", "fair", "hit", "stuff", "value"),
   verbose = 0,
   ...
 )
