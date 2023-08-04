@@ -1,5 +1,5 @@
 
-library(predpitchscore)
+devtools::load_all("package/predpitchscore")
 
 pitch <- data.table::fread("data/pitch/2022.csv")
 event <- data.table::fread("data/event/2022.csv")
@@ -16,11 +16,16 @@ data <- pitch |>
 pred <- predict.pitch_outcome_model(pitch_outcome_model, newpitch = data) |>
   tibble::add_column(pitcher_id = data$pitcher_id, .before = 1)
 
-stuff <- predict.pitch_outcome_model(stuff_model, newpitch = data) |>
-  dplyr::transmute(stuff = pred_value)
+pred$stuff <- predict(
+    stuff_model,
+    newdata = data |>
+      get_quadratic_coef() |>
+      get_trackman_metrics() |>
+      dplyr::select(dplyr::all_of(config_pitch_outcome_xgb$features_stuff)) |>
+      as.matrix()
+  )
 
 pitcher_ranking <- pred |>
-  dplyr::bind_cols(stuff) |>
   dplyr::group_by(pitcher_id) |>
   dplyr::summarize(pitches = dplyr::n(), desc_pitch_score = mean(pitch_value), stuff = mean(stuff)) |>
   dplyr::inner_join(pitch_distrib_model$pitcher_hand, by = "pitcher_id") |>

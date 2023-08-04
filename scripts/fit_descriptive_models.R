@@ -1,10 +1,11 @@
 
-library(predpitchscore)
+devtools::load_all("package/predpitchscore")
 
 year <- 2022
-fit_hit_model <- TRUE
-pitch_components <- c("swing", "hbp", "strike", "contact", "fair", "hit", "value")
-stuff_components <- c("swing", "hbp", "strike", "contact", "fair", "hit", "value")
+models_to_fit <- c("hit_outcome",
+  "pitch_swing", "pitch_hbp", "pitch_strike", "pitch_contact", "pitch_fair", "pitch_hit",
+  "pitch_stuff"
+)
 tune <- FALSE
 verbose <- TRUE
 
@@ -32,7 +33,7 @@ count_value <- compute_count_value(
   base_out_run_exp = base_out_run_exp
 )
 
-if (fit_hit_model) {
+if ("hit_outcome" %in% models_to_fit) {
   hit_outcome_model <- train_hit_outcome_model(
     pitch = pitch,
     event = event,
@@ -68,16 +69,32 @@ if (verbose) {
 pitch_outcome_model <- train_pitch_outcome_model(
   pitch = pitch,
   count_value = count_value,
-  components = pitch_components,
+  models_to_fit = models_to_fit,   # the extra non-component elements of models_to_fit are ignored
   tune = tune
 )
 
-stuff_model <- train_pitch_outcome_model(
-  pitch = pitch,
-  count_value = count_value,
-  components = stuff_components,
-  stuff_only = TRUE
-)
+if ("pitch_stuff" %in% models_to_fit) {
+
+  if (verbose) {
+    logger::log_info("Fitting stuff model")
+  }
+
+  # If we didn't fit all the components of the pitch outcome model, read the model from file so that
+  # we can predict pitch value to use as the response variable in the Stuff model.
+  if (any(sapply(pitch_outcome_model$xgb, is.null))) {
+    pitch_outcome_model_full <- readRDS("models/pitch_outcome_model.rds")
+  } else {
+    pitch_outcome_model_full <- pitch_outcome_model
+  }
+
+  pred_pitch <- predict.pitch_outcome_model(pitch_outcome_model_full, newpitch = pitch)
+
+  stuff_model <- train_stuff_model(
+    pitch = pitch,
+    pitch_value = pred_pitch$pitch_value,
+    tune = tune
+  )
+}
 
 
 # Save the models ----
@@ -88,6 +105,10 @@ if (verbose) {
 
 write.csv(base_out_run_exp, file = "models/base_out_run_exp.csv", row.names = FALSE)
 write.csv(count_value, file = "models/count_value.csv", row.names = FALSE)
-saveRDS(hit_outcome_model, file = "models/hit_outcome_model.rds")
+if (fit_hit_model) {
+  saveRDS(hit_outcome_model, file = "models/hit_outcome_model.rds")
+}
 saveRDS(pitch_outcome_model, file = "models/pitch_outcome_model.rds")
-saveRDS(stuff_model, file = "models/stuff_model.rds")
+if (fit_stuff_model) {
+  saveRDS(stuff_model, file = "models/stuff_model.rds")
+}

@@ -7,7 +7,8 @@
 train_pitch_outcome_model(
   pitch,
   count_value,
-  components = c("swing", "hbp", "strike", "contact", "fair", "hit", "value"),
+  models_to_fit = c("pitch_swing", "pitch_hbp", "pitch_strike", "pitch_contact",
+    "pitch_fair", "pitch_hit", "pitch_value"),
   stuff_only = FALSE,
   tune = FALSE
 )
@@ -18,7 +19,7 @@ train_pitch_outcome_model(
 \item{count_value}{dataframe of count_value from \code{\link{compute_count_value}},
 not used but stashed in the model object for pitch value prediction}
 
-\item{components}{character vector specifying which component models to fit}
+\item{models_to_fit}{character vector specifying which component models to fit}
 
 \item{stuff_only}{logical, fit model with only "Stuff" features (no pitch location)?}
 
