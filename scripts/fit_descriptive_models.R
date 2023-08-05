@@ -105,10 +105,10 @@ if (verbose) {
 
 write.csv(base_out_run_exp, file = "models/base_out_run_exp.csv", row.names = FALSE)
 write.csv(count_value, file = "models/count_value.csv", row.names = FALSE)
-if (fit_hit_model) {
+if ("hit_outcome" %in% models_to_fit) {
   saveRDS(hit_outcome_model, file = "models/hit_outcome_model.rds")
 }
 saveRDS(pitch_outcome_model, file = "models/pitch_outcome_model.rds")
-if (fit_stuff_model) {
+if ("pitch_stuff" %in% models_to_fit) {
   saveRDS(stuff_model, file = "models/stuff_model.rds")
 }
