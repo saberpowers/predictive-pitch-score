@@ -3,7 +3,7 @@ library(readr)
 
 for(year in seq(2017,2022)){
   pred_model <- pred_sim_compilation(year,pitch_outcome_model)
-  saveRDS(pred_model,paste("pred_model",year,".rds"))
+  saveRDS(pred_model,paste("pred_model",year,".rds",sep=""))
 }
 
 for(year in seq(2017,2022)){
