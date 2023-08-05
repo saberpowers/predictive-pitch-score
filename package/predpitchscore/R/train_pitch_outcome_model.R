@@ -48,7 +48,11 @@ train_pitch_outcome_model <- function(pitch,
       strike_zone_top = round(strike_zone_top, 2),
       strike_zone_bottom = round(strike_zone_bottom, 2)
     ) |>
-    dplyr::filter(!is.na(extension), strike_zone_top < 4.25, strike_zone_bottom > 1)
+    dplyr::filter(
+      !is.na(extension),
+      pre_balls < 4, pre_strikes < 3,
+      strike_zone_top < 4.25, strike_zone_bottom > 1
+    )
   
 
   # Train xgboost models ----
@@ -173,8 +177,8 @@ config_pitch_outcome_xgb <- list(
   nrounds_hit = 1000,
   params_hit = list(eta = 0.01, gamma = 0, max_depth = 6, min_child_weight = 100, subsample = 0.65, colsample_bytree = 0.7),
 
-  nrounds_stuff = 1000,
-  params_stuff = list(eta = 0.01, gamma = 0, max_depth = 6, min_child_weight = 100, subsample = 0.65, colsample_bytree = 0.7),
+  nrounds_stuff = 1250,
+  params_stuff = list(eta = 0.01, gamma = 0, max_depth = 9, min_child_weight = 100, subsample = 0.65, colsample_bytree = 0.7),
 
   nrounds_value = 2000,
   params_value = list(eta = 0.01, gamma = 0, max_depth = 6, min_child_weight = 100, subsample = 0.65, colsample_bytree = 0.7),
