@@ -7,6 +7,7 @@
 visualize_pitch_distrib(
   model,
   pitcher_id,
+  plot_type = c("plate", "break"),
   data = NULL,
   n = 10000,
   bat_side = c("L", "R"),
@@ -14,6 +15,7 @@ visualize_pitch_distrib(
   pre_strikes = 0,
   strike_zone_top = 3.4,
   strike_zone_bottom = 1.6,
+  lwd = 4,
   ...
 )
 }
@@ -21,6 +23,8 @@ visualize_pitch_distrib(
 \item{model}{a fitted "pitch_distrib_model" object}
 
 \item{pitcher_id}{integer, specifies which pitcher to visualize}
+
+\item{plot_type}{character string, specifies type of plot, must be "plate" or "break"}
 
 \item{data}{optional dataframe of individual pitches to plot as circles}
 
@@ -35,6 +39,8 @@ visualize_pitch_distrib(
 \item{strike_zone_top}{numeric, top of strike zone for context}
 
 \item{strike_zone_bottom}{numeric, bottom of strike zone for context}
+
+\item{lwd}{numeric, line width for figure annotations}
 }
 \value{
 invisible, but a plot is produced
