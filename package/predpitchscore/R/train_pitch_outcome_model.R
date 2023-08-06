@@ -63,7 +63,7 @@ train_pitch_outcome_model <- function(pitch,
     features <- with(config_pitch_outcome_xgb, c(features_context, features_pitch))
   }
 
-  if ("swing" %in% models_to_fit) {
+  if ("pitch_swing" %in% models_to_fit) {
     xgb_swing <- regression_data |>
       dplyr::mutate(label = is_swing) |>
       train_pitch_outcome_xgb(features = features, tune = tune, label = "swing")
@@ -71,7 +71,7 @@ train_pitch_outcome_model <- function(pitch,
     xgb_swing <- NULL
   }
   
-  if ("hbp" %in% models_to_fit) {
+  if ("pitch_hbp" %in% models_to_fit) {
     xgb_hbp <- regression_data |>
       dplyr::filter(!is_swing) |>
       dplyr::mutate(label = is_hbp) |>
@@ -80,7 +80,7 @@ train_pitch_outcome_model <- function(pitch,
     xgb_hbp <- NULL
   }
 
-  if ("strike" %in% models_to_fit) {
+  if ("pitch_strike" %in% models_to_fit) {
     xgb_strike <- regression_data |>
       dplyr::filter(!is_swing, !is_hbp) |>
       dplyr::mutate(label = is_strike) |>
@@ -89,7 +89,7 @@ train_pitch_outcome_model <- function(pitch,
     xgb_strike <- NULL
   }
   
-  if ("contact" %in% models_to_fit) {
+  if ("pitch_contact" %in% models_to_fit) {
     xgb_contact <- regression_data |>
       dplyr::filter(is_swing) |>
       dplyr::mutate(label = is_contact) |>
@@ -98,7 +98,7 @@ train_pitch_outcome_model <- function(pitch,
     xgb_contact <- NULL
   }
   
-  if ("fair" %in% models_to_fit) {
+  if ("pitch_fair" %in% models_to_fit) {
     xgb_fair <- regression_data |>
       dplyr::filter(is_swing, is_contact) |>
       dplyr::mutate(label = is_fair) |>
@@ -107,7 +107,7 @@ train_pitch_outcome_model <- function(pitch,
     xgb_fair <- NULL
   }
   
-  if ("hit" %in% models_to_fit) {
+  if ("pitch_hit" %in% models_to_fit) {
     xgb_hit <- regression_data |>
       dplyr::filter(is_swing, is_contact, is_fair, !is.na(hit_pred)) |>
       dplyr::mutate(label = hit_pred) |>
@@ -116,7 +116,7 @@ train_pitch_outcome_model <- function(pitch,
     xgb_hit <- NULL
   }
 
-  if ("value" %in% models_to_fit) {
+  if ("pitch_value" %in% models_to_fit) {
     xgb_value <- regression_data |>
       dplyr::filter(!is.na(true_value)) |>
       dplyr::mutate(label = true_value) |>
@@ -162,8 +162,8 @@ config_pitch_outcome_xgb <- list(
   nrounds_swing = 1500,
   params_swing = list(eta = 0.05, gamma = 0, max_depth = 9, min_child_weight = 10, subsample = 0.65, colsample_bytree = 0.7),
 
-  nrounds_hbp = 1000,
-  params_hbp = list(eta = 0.01, gamma = 0, max_depth = 6, min_child_weight = 100, subsample = 0.65, colsample_bytree = 0.7),
+  nrounds_hbp = 400,
+  params_hbp = list(eta = 0.05, gamma = 0, max_depth = 6, min_child_weight = 10, subsample = 0.65, colsample_bytree = 0.7),
 
   nrounds_strike = 2000,
   params_strike = list(eta = 0.01, gamma = 0, max_depth = 9, min_child_weight = 10, subsample = 0.65, colsample_bytree = 0.7),

@@ -79,18 +79,19 @@ train_pitch_distrib_model <- function(data,
     dplyr::count(bsh_num) |>
     dplyr::mutate(weight = n / sum(n))
 
-full_bsh_weights<-bsh_weights
-for(i in 1:24){
-  row<-dplyr::filter(bsh_weights,bsh_num==i)
-  if(length(row$bsh_num)==1){
-    full_bsh_weights[i,]=row
+  # Fill in any missing bsh_weights
+  full_bsh_weights <- bsh_weights
+  for(i in 1:24) {
+    row <- bsh_weights |>
+      dplyr::filter(bsh_num == i)
+    if (length(row$bsh_num) == 1) {
+      full_bsh_weights[i, ] <- row
+    } else {
+      full_bsh_weights[i, 1] <- i
+      full_bsh_weights[i, 2:3] <- 0
+    }
   }
-  else{
-    full_bsh_weights[i,1]<-i
-    full_bsh_weights[i,2:3]<-0
-  }
-}
-bsh_weights<-full_bsh_weights
+  bsh_weights <- full_bsh_weights
 
   stan_data <- with(data_standardized,
     list(
@@ -234,20 +235,20 @@ initialize_pitch_distrib_model <- function(data_standardized, pitch_char_vec) {
       )
     )
 
-  full_bsh_params<-bsh_params
-  for(i in 1:24){
-    row<-filter(bsh_params,bsh_num==i)
-    if(length(row$bsh_num)==1){
-      full_bsh_params[i,]=row
-    }
-    else{
-      full_bsh_params[i,1]<-i
-      full_bsh_params[i,2:10]<-0
-      full_bsh_params[i,11:19]<-1
+  # Fill in any missing bsh_params
+  full_bsh_params <- bsh_params
+  for (i in 1:24) {
+    row <- bsh_params |>
+      dplyr::filter(bsh_num == i)
+    if (length(row$bsh_num) == 1) {
+      full_bsh_params[i,  ] <- row
+    } else {
+      full_bsh_params[i, 1] <- i
+      full_bsh_params[i, 2:10] <- 0
+      full_bsh_params[i, 11:19] <- 1
     }
   }
-  bsh_params<-full_bsh_params
-
+  bsh_params <- full_bsh_params
   
   bsh_means <- bsh_params |>
     dplyr::select(dplyr::ends_with("_mean")) |>
