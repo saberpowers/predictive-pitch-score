@@ -33,7 +33,7 @@ simulate_pitches <- function(model, pitcher_id, n, context) {
   ) |>
     tibble::add_column(
       mu = c(map$mu),
-      pi = c(map$pi),
+      pi = c(map$pivar),
       nu = c(map$nu),
       xi = c(map$xi),
       sigma = c(map$sigma)
