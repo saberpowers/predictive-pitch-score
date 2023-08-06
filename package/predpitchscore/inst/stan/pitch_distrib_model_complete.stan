@@ -1,3 +1,9 @@
+// This is the complete version of the pitch distribution model, meaning that the league
+// hyperparameters are unknown. We use this version of the model to estimate the league
+// hyperparameters (using a subset of pitchers with a sufficiently large sample size), and then we
+// can use the conditional version of the model to estimate pitcher-specific parameters for all
+// pitchers, including those without a sufficiently large sample size.
+
 data {
   int<lower=0> n; //number of observations
   int<lower=0> s; //number of player seasons

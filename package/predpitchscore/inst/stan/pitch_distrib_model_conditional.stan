@@ -1,3 +1,8 @@
+// This is the conditional version of the pitch distribution model, meaning that the league
+// hyperparameters are assumed to be known, and we are estimating the pitcher parameters
+// conditional on those league hyperparameters. We have to estimate the complete model before we
+// can estimate the conditional model.
+
 data {
   int<lower=0> n; //number of observations
   int<lower=0> s; //number of player seasons
