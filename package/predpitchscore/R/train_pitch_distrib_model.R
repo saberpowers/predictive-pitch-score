@@ -4,6 +4,11 @@
 #' characteristic means, standard deviations, and covariance matrices.
 #' 
 #' @param data dataframe of pitch and event data
+#' @param version character string, "complete" or "conditional". The complete model assumes league
+#'   hyperparameters are unknown (takes longer), whereas the conditional model estimates pitcher
+#'   parameters conditional on previously estimated league hyperparameters.
+#' @param complete_model a fitted "pitch_distrib_model" object required if version == "conditional",
+#'   otherwise ignored
 #' @param pitch_char_vec character vector of pitch characteristics to model
 #' @param ... additional arguments for for cmdstanr optimize method
 #' 
@@ -12,11 +17,15 @@
 #' @export
 #' 
 train_pitch_distrib_model <- function(data,
+                                      version = c("complete", "conditional"),
+                                      complete_model = NULL,
                                       pitch_char_vec = c(
                                        "ax", "bx", "cx", "ay", "by", "cy", "az", "bz", "cz"
                                       ),
                                       ...
                                       ) {
+
+  version <- match.arg(version)
 
   model_data <- data |>
     dplyr::filter(
@@ -25,9 +34,9 @@ train_pitch_distrib_model <- function(data,
       pre_balls < 4,
       pre_strikes < 3
     ) |>
-    # Filter down to pitchers with at least 100 pitches
+    # Filter out pitchers with insufficient pitch counts
     dplyr::group_by(year, pitcher_id) |>
-    dplyr::filter(dplyr::n() >= 100) |>
+    dplyr::filter(dplyr::n() >= ifelse(version == "complete", 100, 1)) |>
     dplyr::ungroup() |>
     # Get necessary pitch characteristics and context variables
     get_quadratic_coef() |>
@@ -110,8 +119,30 @@ train_pitch_distrib_model <- function(data,
     )
   )
 
+  # If we're fitting the conditional model, extract league hyperparameters
+  # from previously estimated complete model
+  if (version == "conditional") {
+
+    league_hyperparameters <- c("tau", "gamma", "epsilon", "eta", "lambda", "zeta", "leagueRho")
+
+    for (parameter in league_hyperparameters) {
+
+      stan_data[[parameter]] <- as.numeric(complete_model$cmdstan_fit$draws(parameter))
+
+      # Convert matrix hyperparameters from vector to matrix
+      if (parameter %in% c("lambda", "zeta", "leagueRho")) {
+        stan_data[[parameter]] <- matrix(stan_data[[parameter]], ncol = length(pitch_char_vec))
+      }
+    }
+
+    stan_data$leagueRho <- stan_data$leagueRho / sqrt(rowSums(stan_data$leagueRho^2))
+  }
+
   model <- cmdstanr::cmdstan_model(
-    stan_file = system.file("stan", "pitch_distrib_model.stan", package = "predpitchscore")
+    stan_file = system.file(
+      "stan", glue::glue("pitch_distrib_model_{version}.stan"),
+      package = "predpitchscore"
+    )
   )
 
   cmdstan_init <- initialize_pitch_distrib_model(
