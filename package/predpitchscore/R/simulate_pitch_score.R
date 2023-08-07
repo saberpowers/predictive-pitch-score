@@ -24,9 +24,9 @@ simulate_pitch_score <- function(pitcher_id, n, context, pitch_distrib_model, pi
   ) |>
     get_trackman_metrics()
   
-  simmed_pitch$is_rhb <- as.numeric(simmed_pitch$bat_side=="R")
+  simmed_pitch$is_rhb <- as.numeric(simmed_pitch$bat_side == "R")
 
-    pred <- predict(
+  pred <- predict(
     object = pitch_outcome_model,
     newpitch = simmed_pitch
   )

@@ -1,13 +1,17 @@
 
-library(predpitchscore)
+devtools::load_all("package/predpitchscore")
 
-year <- 2021
+year <- 2023
+split_even_odd <- FALSE
+version <- "conditional"
 iter <- 15000
 tol_param <- 1e-8
 verbose <- TRUE
 
 if (verbose) {
-  logger::log_info("Running with year: {year}, iter: {iter}, tol_param: {tol_param}")
+  logger::log_info(
+    "Running with year: {year}, version: {version}, iter: {iter}, tol_param: {tol_param}"
+  )
 }
 
 
@@ -24,8 +28,12 @@ data <- pitch |>
   dplyr::left_join(event, by = c("year", "game_id", "event_index")) |>
   dplyr::filter(pitch_type %in% c("FF", "SI", "FC", "SL", "CU", "KC", "CH", "FS")) |>
   dplyr::mutate(
-    even_odd = ifelse(game_id %% 2 == 0, "even", "odd"),
-    batch = paste(pitch_type, even_odd, sep = "_")
+    training_sample = dplyr::case_when(
+      !split_even_odd ~ as.character(year),
+      split_even_odd & game_id %% 2 == 0 ~ glue::glue("{year}_even"),
+      split_even_odd & game_id %% 2 == 1 ~ glue::glue("{year}_odd")
+    ),
+    batch = paste(pitch_type, training_sample, sep = "_")
   )
 
 
@@ -33,14 +41,29 @@ data <- pitch |>
 
 num_workers <- parallel::detectCores()
 
-batch <- data |>
-  dplyr::count(batch, pitch_type, even_odd) |>
+batch_info <- data |>
+  dplyr::count(batch, pitch_type, training_sample) |>
   # Assign workers to batches with snake draft order (for computational efficiency)
   dplyr::arrange(-n) |>
   dplyr::mutate(worker = rep(c(1:num_workers, num_workers:1), length = dplyr::n())) |>
   dplyr::arrange(worker)
 
-batch_data <- split(data, f = data$batch)[batch$batch]
+for (b in 1:nrow(batch_info)) {
+
+  # Load previously estimated complete model (if necessary)
+  if (version == "conditional") {
+    model_file <- glue::glue("{batch_info$pitch_type[b]}/{batch_info$training_sample[b]}.rds")
+    complete_model <- readRDS(glue::glue("models/distribution/complete/{model_file}"))
+  } else {
+    complete_model <- NULL
+  }
+
+  batch_args[[batch_info$batch[b]]] <- list(
+    data = data |>
+      dplyr::filter(batch == batch_info$batch[b]),
+    complete_model = complete_model
+  )
+}
 
 
 # Fit the models ----
@@ -51,12 +74,19 @@ if (verbose) {
 
 future::plan(strategy = future::multisession, workers = parallel::detectCores())
 pitch_distrib_model <- future.apply::future_lapply(
-  X = batch_data,
-  FUN = function(data, ...) {
-    model <- try(train_pitch_distrib_model(data = data, ...))
+  X = batch_args,
+  FUN = function(args, ...) {
+    model <- try(
+      train_pitch_distrib_model(
+        data = args$data,
+        complete_model = args$complete_model,
+        ...
+      )
+    )
     return(model)
   },
   future.seed = TRUE,
+  version = version,
   iter = iter,
   tol_param = tol_param
 )
@@ -69,9 +99,11 @@ if (verbose) {
   logger::log_info("Saving models")
 }
 
-for (b in 1:nrow(batch)) {
+for (b in 1:nrow(batch_info)) {
   saveRDS(
-    pitch_distrib_model[[batch$batch[b]]],
-    file = glue::glue("models/distribution/{batch$pitch_type[b]}/{year}_{batch$even_odd[b]}.rds")
+    pitch_distrib_model[[batch_info$batch[b]]],
+    file = glue::glue(
+      "models/distribution/{version}/{batch_info$pitch_type[b]}/{batch_info$training_sample[b]}.rds"
+    )
   )
 }
