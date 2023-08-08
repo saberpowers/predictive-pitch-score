@@ -5,7 +5,7 @@ library(dplyr)
 library(cmdstanr)
 #Downloads Data and gets values ready
 
-for(year in seq(2019,2022)){
+for(year in seq(2017,2023)){
   pitch<-read_csv(paste("predictive-pitch-score/data/pitch/",year,".csv",sep=""))
   event<-read_csv(paste("predictive-pitch-score/data/event/",year,".csv",sep=""))
   for(k in c("even","odd")){
@@ -16,13 +16,29 @@ for(year in seq(2019,2022)){
           even_odd = ifelse(game_id %% 2 == 0, "even", "odd")
         ) |>
         dplyr::filter(pitch_type==pitch_index, even_odd==k)
-    distribution_fit<-readRDS(glue::glue("~/Downloads/distribution/{pitch_index}/{year}_{k}.rds"))
+    distribution_fit<-readRDS(glue::glue("predictive-pitch-score/models/distribution/complete/{pitch_index}/{year}_{k}.rds"))
     dist<-train_pitch_distrib_model_fixed_league(data,distribution_fit)
     saveRDS(
       dist,
-      file = glue::glue("~/Downloads/distribution/{pitch_index}/{year}_{k}_low_n.rds")
+      file = glue::glue("predictive-pitch-score/models/distribution/conditional/{pitch_index}/{year}_{k}_low_n.rds")
     )
     }
+  }
+}
+
+for(year in seq(2017,2023)){
+  pitch<-read_csv(paste("predictive-pitch-score/data/pitch/",year,".csv",sep=""))
+  event<-read_csv(paste("predictive-pitch-score/data/event/",year,".csv",sep=""))
+    for(pitch_index in c("FF", "SI", "FC", "SL", "CU", "KC", "CH", "FS")){
+      data <- pitch |>
+        dplyr::left_join(event, by = c("year", "game_id", "event_index")) |>
+        dplyr::filter(pitch_type==pitch_index)
+      distribution_fit<-readRDS(glue::glue("predictive-pitch-score/models/distribution/complete/{pitch_index}/{year}.rds"))
+      dist<-train_pitch_distrib_model_fixed_league(data,distribution_fit)
+      saveRDS(
+        dist,
+        file = glue::glue("predictive-pitch-score/models/distribution/conditional/{pitch_index}/{year}_low_n.rds")
+      )
   }
 }
 
