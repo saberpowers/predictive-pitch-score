@@ -16,13 +16,13 @@ data {
   array[n] int bsh; //context vector
   array[n] int p; //Player Season id vector
   row_vector[24] bsh_weights; //context weights
-  vector[c] tau; //centrality prior
-  vector<lower=0>[c] gamma; //SD in centrality parameter
-  vector<lower=0>[c] epsilon; //Mean for spread prior
-  vector<lower=0>[c] eta; //SD for spread prior
-  matrix[24,c] lambda; //count coefficients
-  matrix<lower=0>[24,c] zeta; //count spread coefficients
-  cholesky_factor_corr[c] leagueRho; // prior correlation
+  vector[c] tau_fixed; //centrality prior
+  vector<lower=0>[c] gamma_fixed; //SD in centrality parameter
+  vector<lower=0>[c] epsilon_fixed; //Mean for spread prior
+  vector<lower=0>[c] eta_fixed; //SD for spread prior
+  matrix[24,c] lambda_fixed; //count coefficients
+  matrix<lower=0>[24,c] zeta_fixed; //count spread coefficients
+  cholesky_factor_corr[c] leagueRho_fixed; // prior correlation
 }
 
 parameters {
@@ -37,9 +37,13 @@ parameters {
 }
 
 transformed parameters {
-  matrix[s,c] nu; //ball coefficients
-  matrix[s,c] xi; //strike coefficients
-  matrix[s,c] pivar; //handedness coefficients
+  matrix[24,c] lambda;      // count effect on mean (additive)
+  matrix[24,c] zeta;        // count effect on standard deviation (multiplicative)
+  matrix[s,c] nu;           // ball coefficients
+  matrix[s,c] xi;           // strike coefficients
+  matrix[s,c] pivar;        // handedness coefficients
+  lambda = lambda_fixed;    // we do this just so that the value of lambda is captured in model fit
+  zeta = zeta_fixed;        // we do this just so that the value of eta is captured in model fit
   nu[2:s,1:c]=nunorm*0.05;
   xi[2:s,1:c]=xinorm*0.05;
   pivar[2:s,1:c]=pinorm*0.1;
@@ -56,8 +60,8 @@ model {
   matrix[n,c] zscores;
   for(i in 1:n){
     for(j in 1:c){
-      means[i,j]=mu[p[i],j]+lambda[bsh[i],j]+sz_top[i]*theta[j]+sz_bottom[i]*kappa[j]+pivar[p[i],j]*hand[i]+nu[p[i],j]*balls[i]+xi[p[i],j]*strikes[i];
-      sds[i,j]=sigma[p[i],j]*zeta[bsh[i],j];
+      means[i,j] = mu[p[i],j] + lambda_fixed[bsh[i],j] + sz_top[i] * theta[j] + sz_bottom[i] * kappa[j] + pivar[p[i],j] * hand[i] + nu[p[i],j] * balls[i] + xi[p[i],j] * strikes[i];
+      sds[i,j] = sigma[p[i],j] * zeta_fixed[bsh[i],j];
     }
   }
   zscores=(v-means)./sds;
@@ -65,8 +69,8 @@ model {
   for (i in 1:n){
     zscores[i,1:c] ~ multi_normal_cholesky(to_row_vector(rep_array(0.0,c)), Rho[p[i]]);
   }
-  lambda[1,1:c] ~ normal(0,0.2);
-  zeta[1,1:c] ~ normal(1,0.1);
+  lambda_fixed[1,1:c] ~ normal(0,0.2);
+  zeta_fixed[1,1:c] ~ normal(1,0.1);
   to_vector(nunorm) ~ std_normal();
   to_vector(xinorm) ~ std_normal();
   to_vector(pinorm) ~ std_normal();
@@ -74,13 +78,13 @@ model {
   xi[1,1:c] ~ normal(0,0.05);
   pivar[1,1:c] ~ normal(0,0.1);
   for(i in 1:c){
-    mu[1:s,i] ~ normal(tau[i],gamma[i]);
-    sigma[1:s,i] ~ normal(epsilon[i],eta[i]);
+    mu[1:s,i] ~ normal(tau_fixed[i], gamma_fixed[i]);
+    sigma[1:s,i] ~ normal(epsilon_fixed[i], eta_fixed[i]);
   }
   for(i in 2:c){
     for(j in 1:(i-1)){
       for(k in 1:s){
-        Rho[k][i,j]~normal(leagueRho[i,j],0.1);
+        Rho[k][i,j] ~ normal(leagueRho_fixed[i,j], 0.1);
       }
     }
   }

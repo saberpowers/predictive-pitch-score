@@ -36,7 +36,7 @@ train_pitch_distrib_model <- function(data,
     ) |>
     # Filter out pitchers with insufficient pitch counts
     dplyr::group_by(year, pitcher_id) |>
-    dplyr::filter(dplyr::n() >= ifelse(version == "complete", 100, 1)) |>
+    dplyr::filter(dplyr::n() >= ifelse(version == "complete", 100, 10)) |>
     dplyr::ungroup() |>
     # Get necessary pitch characteristics and context variables
     get_quadratic_coef() |>
@@ -127,15 +127,17 @@ train_pitch_distrib_model <- function(data,
 
     for (parameter in league_hyperparameters) {
 
-      stan_data[[parameter]] <- as.numeric(complete_model$cmdstan_fit$draws(parameter))
+      name <- glue::glue("{parameter}_fixed")
+      stan_data[[name]] <- as.numeric(complete_model$map[[parameter]])
 
       # Convert matrix hyperparameters from vector to matrix
       if (parameter %in% c("lambda", "zeta", "leagueRho")) {
-        stan_data[[parameter]] <- matrix(stan_data[[parameter]], ncol = length(pitch_char_vec))
+        stan_data[[name]] <- matrix(stan_data[[name]], ncol = length(pitch_char_vec))
       }
     }
 
-    stan_data$leagueRho <- stan_data$leagueRho / sqrt(rowSums(stan_data$leagueRho^2))
+    stan_data$leagueRho_fixed <- stan_data$leagueRho_fixed /
+      sqrt(rowSums(stan_data$leagueRho_fixed^2))
   }
 
   model <- cmdstanr::cmdstan_model(
@@ -158,11 +160,14 @@ train_pitch_distrib_model <- function(data,
     ...
   )
 
-  # Because draws are only read lazily into R, this ensures that saving the object works downstream
-  draws <- cmdstan_fit$draws()
+  # Extract MAP parameter estimates from the cmdstanr object because it can be temperamental
+  map <- list()   # maximum a posteriori parameter estimates
+  for (parameter in cmdstan_fit$metadata()$stan_variables) {
+    map[[parameter]] <- cmdstan_fit$draws(parameter)
+  }
 
   model <- list(
-    cmdstan_fit = cmdstan_fit,
+    map = map,
     pitch_char_vec = pitch_char_vec,
     pitcher_hand = pitcher_hand,
     league_params = league_params
@@ -195,11 +200,12 @@ initialize_pitch_distrib_model <- function(data_standardized, pitch_char_vec) {
   pitcher_params <- data_standardized_long |>
     dplyr::group_by(pitcher_num, pitch_char) |>
     dplyr::summarize(
+      n = dplyr::n(),
       mean = mean(value),
-      sd = sd(value),
-      nu = cov(value, pre_balls) / (0.001 + var(pre_balls)),
-      xi = cov(value, pre_strikes)/ (0.001 + var(pre_strikes)),
-      pi = cov(value, same_hand) / (0.001 + var(same_hand)),
+      sd = tidyr::replace_na(sd(value), 0.5),
+      nu = tidyr::replace_na(cov(value, pre_balls) / (0.001 + var(pre_balls)), 0),
+      xi = tidyr::replace_na(cov(value, pre_strikes)/ (0.001 + var(pre_strikes)), 0),
+      pi = tidyr::replace_na(cov(value, same_hand) / (0.001 + var(same_hand)), 0),
       .groups = "drop"
     ) |>
     dplyr::group_by(pitch_char) |>
@@ -207,7 +213,6 @@ initialize_pitch_distrib_model <- function(data_standardized, pitch_char_vec) {
       nu = nu - mean(nu),
       xi = xi - mean(xi),
       pi = pi - mean(pi),
-      n = dplyr::n(),
       ballast = (1 / var(mean)) / (1 / mean(sd) * 0.95)^2,
       var_prior = 1 / mean(sd^{-2}),
       ballast_2 = 2 * mean(sd^2) / (mean(sd^2) - var_prior)
@@ -316,7 +321,7 @@ initialize_pitch_distrib_model <- function(data_standardized, pitch_char_vec) {
       
     player_corr <- cor(player_data)
 
-    weight <- sqrt(nrow(player_data)) / (sqrt(nrow(player_data)) + 7)
+    weight <- sqrt(nrow(player_data) - 1) / (sqrt(nrow(player_data)) + 7)
 
     Rho_init[num, , ] <- t(chol(weight * player_corr + (1 - weight) * league_corr))
   }

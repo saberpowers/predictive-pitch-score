@@ -24,7 +24,7 @@ simulate_pitches <- function(model, pitcher_id, n, context) {
   map <- list()   # maximum a posteriori parameter estimates
   parameters <- c("mu", "sigma", "pivar", "nu", "xi", "Rho", "lambda", "zeta", "theta", "kappa")
   for (parameter in parameters) {
-    map[[parameter]] <- cmdstanr::as_draws(model$cmdstan_fit$draws(parameter))
+    map[[parameter]] <- cmdstanr::as_draws(model$map[[parameter]])
   }
 
   pitcher_coef <- expand.grid(
