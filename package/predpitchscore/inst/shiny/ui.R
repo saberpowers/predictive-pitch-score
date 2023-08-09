@@ -1,5 +1,57 @@
+viz_tab <- function(slot) {
+  shiny::tabPanel(title = glue::glue("Visualization (Slot {slot})"),
+    shiny::sidebarLayout(
+      sidebarPanel = shiny::sidebarPanel(
+        shiny::selectInput(
+          inputId = glue::glue("pitcher_{slot}"),
+          label = "Pitcher",
+          choices = sort(unique(predpitchscore::leaderboard_2023$pitcher_id))
+        ),
+        shiny::radioButtons(
+          inputId = glue::glue("pitch_type_viz_{slot}"),
+          label = "Pitch Type",
+          choices = c("FF", "SI", "FC", "SL", "CU", "KC", "CH", "FS"),
+          selected = "FF",
+          inline = TRUE
+        ),
+        shiny::radioButtons(
+          inputId = glue::glue("plot_type_{slot}"),
+          label = "Plot Type",
+          choices = c("Plate", "Break"),
+          selected = "Plate",
+          inline = TRUE
+        ),
+        shiny::radioButtons(
+          inputId = glue::glue("bat_side_{slot}"),
+          label = "Batter Side",
+          choices = c("L", "R"),
+          selected = "R",
+          inline = TRUE
+        ),
+        shiny::selectInput(
+          inputId = glue::glue("count_{slot}"),
+          label = "Count",
+          choices = c("0-0", "0-1", "0-2", "1-0", "1-1", "1-2", "2-0", "2-1", "2-2", "3-0", "3-1", "3-2")
+        ),
+        shiny::radioButtons(
+          inputId = glue::glue("show_data_{slot}"),
+          label = "Show Actual Pitches",
+          choices = c("Yes", "No"),
+          selected = "Yes",
+          inline = TRUE
+        ),
+        shiny::actionButton(inputId = glue::glue("update_visualization_{slot}"), label = "Update")
+      ),
+      mainPanel = shiny::mainPanel(
+        shiny::plotOutput(outputId = glue::glue("visualization_{slot}"))
+      )
+    )
+  )
+}
+
+
 ui <- shiny::fluidPage(
-  shiny::titlePanel("2023 MLB Predictive Pitch Score Leaderboard"),
+  shiny::titlePanel("2023 MLB Predictive Pitch Score"),
   shiny::tabsetPanel(
     shiny::tabPanel(title = "Leaderboard",
       shiny::sidebarLayout(
@@ -32,50 +84,7 @@ ui <- shiny::fluidPage(
         )
       )
     ),
-    shiny::tabPanel(title = "Visualization",
-      shiny::sidebarLayout(
-        sidebarPanel = shiny::sidebarPanel(
-          shiny::selectInput(
-            inputId = "pitcher",
-            label = "Pitcher",
-            choices = sort(unique(predpitchscore::leaderboard_2023$pitcher_id))
-          ),
-          shiny::radioButtons(
-            inputId = "pitch_type_viz",
-            label = "Pitch Type",
-            choices = c("FF", "SI", "FC", "SL", "CU", "KC", "CH", "FS"),
-            selected = "FF",
-            inline = TRUE
-          ),
-          shiny::radioButtons(
-            inputId = "bat_side",
-            label = "Batter Side",
-            choices = c("L", "R"),
-            selected = "R",
-            inline = TRUE
-          ),
-          shiny::numericInput(
-            inputId = "balls",
-            label = "Balls",
-            value = 0,
-            min = 0,
-            max = 3,
-            step = 1
-          ),
-          shiny::numericInput(
-            inputId = "strikes",
-            label = "Strikes",
-            value = 0,
-            min = 0,
-            max = 2,
-            step = 1
-          ),
-          shiny::actionButton(inputId = "update_visualization", label = "Update")
-        ),
-        mainPanel = shiny::mainPanel(
-          shiny::plotOutput(outputId = "visualization")
-        )
-      )
-    )
+    viz_tab(1),
+    viz_tab(2)
   )
 )
