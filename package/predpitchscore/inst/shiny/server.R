@@ -29,32 +29,54 @@ server <- function(input, output, session) {
     )
   )
 
-  viz_args <- shiny::eventReactive(
-    eventExpr = input$update_visualization,
-    valueExpr = list(
-      pitcher_id = input$pitcher_id,
-      pitch_type = input$pitch_type,
-      bat_side = input$bat_side,
-      balls = input$balls,
-      strikes = input$strikes
+  viz_reactive <- function(slot) {
+    shiny::eventReactive(
+      eventExpr = input[[glue::glue("update_visualization_{slot}")]],
+      valueExpr = list(
+        pitcher_id = as.integer(input[[glue::glue("pitcher_{slot}")]]),
+        pitch_type = input[[glue::glue("pitch_type_viz_{slot}")]],
+        plot_type = tolower(input[[glue::glue("plot_type_{slot}")]]),
+        bat_side = input[[glue::glue("bat_side_{slot}")]],
+        balls = as.integer(substring(input[[glue::glue("count_{slot}")]], 1, 1)),
+        strikes = as.integer(substring(input[[glue::glue("count_{slot}")]], 3, 3)),
+        show_data = input[[glue::glue("show_data_{slot}")]]
+      )
     )
-  )
+  }
 
-  output$visualization <- shiny::renderPlot(
-    expr = predpitchscore::visualize_pitch_distrib(
-      model = predpitchscore::pitch_distrib_model_2023[[viz_args()$pitch_type]],
-      pitcher_id = viz_args()$pitcher_id,
-      data = predpitchscore::data_2023 |>
-        dplyr::filter(
-          pitcher_id == viz_args()$pitcher_id,
-          pitch_type == viz_args()$pitch_type,
-          bat_side == viz_args()$bat_side,
-          pre_balls == viz_args()$balls,
-          pre_strikes == viz_args()$strikes
-        ),
-      bat_side = viz_args()$bat_side,
-      pre_balls = viz_args()$balls,
-      pre_strikes = viz_args()$strikes
+  viz_output <- function(viz_args) {
+    shiny::renderPlot(
+      expr = {
+        if (viz_args()$show_data == "Yes") {
+          data = predpitchscore::data_2023 |>
+            dplyr::filter(
+              pitcher_id == viz_args()$pitcher_id,
+              pitch_type == viz_args()$pitch_type,
+              bat_side == viz_args()$bat_side,
+              pre_balls == viz_args()$balls,
+              pre_strikes == viz_args()$strikes
+            )
+        } else {
+          data = NULL
+        }
+        predpitchscore::visualize_pitch_distrib(
+          model = predpitchscore::pitch_distrib_model_2023[[viz_args()$pitch_type]],
+          pitcher_id = viz_args()$pitcher_id,
+          plot_type = viz_args()$plot_type,
+          data = data,
+          bat_side = viz_args()$bat_side,
+          pre_balls = viz_args()$balls,
+          pre_strikes = viz_args()$strikes
+        )
+      },
+      height = 450,
+      width = 360
     )
-  )
+  }
+
+  viz_args_1 <- viz_reactive(1)
+  viz_args_2 <- viz_reactive(2)
+
+  output$visualization_1 <- viz_output(viz_args_1)
+  output$visualization_2 <- viz_output(viz_args_2)
 }

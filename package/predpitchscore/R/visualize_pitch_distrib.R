@@ -70,7 +70,7 @@ visualize_pitch_distrib <- function(model,
   # Perform 2-dimensional kernal density estimation
   MASS::kde2d(x = x, y = y, h = h, n = 400, lims = lims) |>   # h = 0.6 was chosen to taste
     # Plot a heatmap of the pitch location distribution
-    image(col = viridis::viridis_pal()(400), axes = FALSE, ...)
+    image(col = viridis::viridis_pal()(400), ...)
 
   if (plot_type == "plate") {
 
