@@ -1,8 +1,8 @@
 
 devtools::load_all("package/predpitchscore")
 
-year <- 2023
-split_even_odd <- FALSE
+year <- 2022
+split_even_odd <- TRUE
 version <- "conditional"
 iter <- 15000
 tol_param <- 1e-8
@@ -10,7 +10,7 @@ verbose <- TRUE
 
 if (verbose) {
   logger::log_info(
-    "Running with year: {year}, version: {version}, iter: {iter}, tol_param: {tol_param}"
+    "Running with year: {year}, split_even_odd: {split_even_odd}, version: {version}, iter: {iter}, tol_param: {tol_param}"
   )
 }
 
@@ -47,6 +47,8 @@ batch_info <- data |>
   dplyr::arrange(-n) |>
   dplyr::mutate(worker = rep(c(1:num_workers, num_workers:1), length = dplyr::n())) |>
   dplyr::arrange(worker)
+
+batch_args <- list()
 
 for (b in 1:nrow(batch_info)) {
 
