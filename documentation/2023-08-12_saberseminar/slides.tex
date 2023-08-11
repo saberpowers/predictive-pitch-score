@@ -24,26 +24,28 @@
   \end{frame}
 
   \begin{frame}{Pitch Modeling}
+    \centering
     \includegraphics[width = \textwidth]{images/pitching_plus.png}\\
-    \color{ricegray} \footnotesize https://library.fangraphs.com/pitching/stuff-location-and-pitching-primer/
+    \color{ricegray} \scriptsize https://library.fangraphs.com/pitching/stuff-location-and-pitching-primer/
   \end{frame}
 
   \begin{frame}{The Conundrum}
     \begin{columns}
       \begin{column}{0.5\textwidth}
         \centering
-        Variable Importance\\
+        $\mbox{Variable Importance}^1$\\
         \includegraphics[width = \textwidth]{images/feature_importance.pdf}
       \end{column}
       \begin{column}{0.5\textwidth}
         \centering
-        Variable Reliability*\\
+        $\mbox{Variable Reliability}^2$\\
         \includegraphics[width = \textwidth]{images/feature_reliability.pdf}
       \end{column}
     \end{columns}
     \scriptsize \color{ricegray}
     \vfill
-    * (between-pitcher variance) / (total variance); varies by pitch type (RHB FB here)
+    ${}^1$ fractional contribution of each feature's splits to gradient boosting pitch model\\
+    ${}^2$ (between-pitcher variance) / (total variance); varies by pitch type (here: RHB FB)
   \end{frame}
 
   \begin{frame}{An Example}
@@ -55,7 +57,7 @@
       \end{column}
       \begin{column}{0.8\textwidth}
         \begin{itemize}
-          \item 91 mph FB
+          \item 91 mph fastball
           \item 15 inches rise
           \item located on the edge of the zone
           \item 68\% called strike, 11\% foul, 8\% ball in play,\\
@@ -73,7 +75,7 @@
       \end{column}
       \begin{column}{0.8\textwidth}
         \begin{itemize}
-          \item 98 mph FB
+          \item 98 mph fastball
           \item 20 inches rise
           \item located a foot off of the plate
           \item 99.6\% called ball ($+0.04$ runs)
@@ -116,25 +118,44 @@
   \end{frame}
 
   \begin{frame}{Bayesian Hierarchical Model}
+    Within each pitch type:
     \begin{itemize}
       \item We model each pitch as multivariate normal in 9 dimensions
       \begin{itemize}
         \item x/y/z release point, x/y/z release velocity, x/y/z acceleration
       \end{itemize}
-      \item Mean $\mu \in \mathbb{R}^9$ includes additive effects for pitcher, count, batter side and strike zone height
-      \item Covariance $\Sigma \in \mathbb{R}^{9 \times 9}$:
+      \item Each pitcher has 81 parameters:
       \begin{itemize}
-        \item Diagonal elements (variance) include multiplicative effects for pitcher, count
-        \item Off-diagonal elements (correlation) vary by pitcher
+        \item $9 \times 4 = 36$ parameters for {\bf mean}
+        \begin{itemize}
+          \item Main effect plus interactions w/ balls, strikes, batter side
+        \end{itemize}
+        \item $9 \times 1 = 9$ parameters for {\bf variance}
+        \item $\binom{9}{2} = 36$ parameters for {\bf correlation} between dimensions
+      \end{itemize}
+      \item Each (ball, strike, batter side) combo has 18 parameters:
+      \begin{itemize}
+        \item 9 parameters for mean, 9 parameters for variance
       \end{itemize}
       \item We find the maximum {\it a posteriori} (MAP) model fit using the \texttt{optimize} function (automatic differentiation) from cmdstanr
     \end{itemize}
   \end{frame}
 
   \begin{frame}{Dylan Cease's Slider vs RHB in 0-0 Counts}
-    \includegraphics[width = 0.45\textwidth]{images/656302_SL_R_0_0_break.png}
-    \hfill
-    \includegraphics[width = 0.45\textwidth]{images/656302_SL_R_0_0_plate.png}
+    \begin{columns}
+      \begin{column}{0.5\textwidth}
+        \centering
+        Predicted Break Chart\\
+        \vspace{4mm}
+        \includegraphics[width = 0.9\textwidth]{images/656302_SL_R_0_0_break.png}
+      \end{column}
+      \begin{column}{0.5\textwidth}
+        \centering
+        Predicted Plate Location\\
+        \vspace{4mm}
+        \includegraphics[width = 0.9\textwidth]{images/656302_SL_R_0_0_plate.png}
+      \end{column}
+    \end{columns}
   \end{frame}
 
   \begin{frame}{Dylan Cease's Slider vs RHB in All Counts}
@@ -146,11 +167,25 @@
   \begin{frame}{Does It Work?}
   \end{frame}
 
-  \begin{frame}{More to Come!}
+  \begin{frame}{Conclusions}
+    Takeaways:
+    \begin{enumerate}
+      \item Think more about the second source of noise\\
+        (random variation in the pitch trajectory itself)
+      \item If pitch modeling is your starting point,\\
+        you're missing something {\color{ricegray} (I think)}
+    \end{enumerate}
+    ~\\
+    What's coming up next:
+    \begin{itemize}
+      \item Better (simpler?) parameterization for distribution model
+      \item Relax Gaussian assumption (unimodal with specific tails)
+    \end{itemize}
   \end{frame}
 
   \begin{frame}{Where to Find Us}
 
+    {\color{ricerichblue}saberpowers}{\color{ricegray}.shinyapps.io/}{\color{ricerichblue}predictive-pitch-score}\\
     {\color{ricegray} github.com/}{\color{ricerichblue}saberpowers/predictive-pitch-score}\\
     ~\\
     {\color{ricegray} linkedin.com/in/}{\color{ricerichblue}saberpowers}\\

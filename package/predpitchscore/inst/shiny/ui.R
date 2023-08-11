@@ -1,11 +1,17 @@
 viz_tab <- function(slot) {
+
+  pitcher_table <- predpitchscore::leaderboard_2023 |>
+    dplyr::distinct(pitcher_id, player_name)
+  pitcher_id_vec <- pitcher_table$pitcher_id
+  names(pitcher_id_vec) <- pitcher_table$player_name
+
   shiny::tabPanel(title = glue::glue("Visualization (Slot {slot})"),
     shiny::sidebarLayout(
       sidebarPanel = shiny::sidebarPanel(
         shiny::selectInput(
-          inputId = glue::glue("pitcher_{slot}"),
+          inputId = glue::glue("pitcher_id_{slot}"),
           label = "Pitcher",
-          choices = sort(unique(predpitchscore::leaderboard_2023$pitcher_id))
+          choices = pitcher_id_vec
         ),
         shiny::radioButtons(
           inputId = glue::glue("pitch_type_viz_{slot}"),
