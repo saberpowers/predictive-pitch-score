@@ -21,39 +21,33 @@ simulate_pitches <- function(model, pitcher_id, n, context) {
   league_params <- model$league_params
   pitch_char_vec <- model$pitch_char_vec
 
-  map <- list()   # maximum a posteriori parameter estimates
-  parameters <- c("mu", "sigma", "pivar", "nu", "xi", "Rho", "lambda", "zeta", "theta", "kappa")
-  for (parameter in parameters) {
-    map[[parameter]] <- cmdstanr::as_draws(model$map[[parameter]])
-  }
-
   pitcher_coef <- expand.grid(
     pitcher_id = model$pitcher_hand$pitcher_id,
     pitch_char = pitch_char_vec
   ) |>
     tibble::add_column(
-      mu = c(map$mu),
-      pi = c(map$pivar),
-      nu = c(map$nu),
-      xi = c(map$xi),
-      sigma = c(map$sigma)
+      mu = c(model$map$mu),
+      pi = c(model$map$pivar),
+      nu = c(model$map$nu),
+      xi = c(model$map$xi),
+      sigma = c(model$map$sigma)
     )
 
   count_coef <- expand.grid(
     bsh_num = 1:24,
     pitch_char = pitch_char_vec
   ) |> tibble::add_column(
-    lambda = c(map$lambda),
-    zeta = c(map$zeta)
+    lambda = c(model$map$lambda),
+    zeta = c(model$map$zeta)
   )
 
   general_coef <- tibble::tibble(
     pitch_char = pitch_char_vec,
-    theta = c(map$theta),
-    kappa = c(map$kappa)
+    theta = c(model$map$theta),
+    kappa = c(model$map$kappa)
   )
 
-  all_rho <- array(map$Rho,
+  all_rho <- array(model$map$Rho,
     dim = c(nrow(model$pitcher_hand), length(pitch_char_vec), length(pitch_char_vec))
   )
   rho <- all_rho[which(model$pitcher_hand$pitcher_id == pitcher_id), , ]
