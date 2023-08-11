@@ -35,7 +35,7 @@ server <- function(input, output, session) {
       valueExpr = {
         pitcher_id <- as.integer(input[[glue::glue("pitcher_id_{slot}")]])
         pitch_type <- input[[glue::glue("pitch_type_viz_{slot}")]]
-        model <- predpitchscore::pitch_distrib_model_2023[[pitch_type]]
+        model <- predpitchscore::shiny_model_2023[[pitch_type]]
         shiny::validate(
           shiny::need(
             expr = pitcher_id %in% model$pitcher_hand$pitcher_id,
@@ -59,7 +59,7 @@ server <- function(input, output, session) {
     shiny::renderPlot(
       expr = {
         if (viz_args()$show_data == "Yes") {
-          data = predpitchscore::data_2023 |>
+          data <- predpitchscore::shiny_data_2023 |>
             dplyr::filter(
               pitcher_id == viz_args()$pitcher_id,
               pitch_type == viz_args()$pitch_type,
@@ -68,10 +68,10 @@ server <- function(input, output, session) {
               pre_strikes == viz_args()$strikes
             )
         } else {
-          data = NULL
+          data <- NULL
         }
         predpitchscore::visualize_pitch_distrib(
-          model = predpitchscore::pitch_distrib_model_2023[[viz_args()$pitch_type]],
+          model = predpitchscore::shiny_model_2023[[viz_args()$pitch_type]],
           pitcher_id = viz_args()$pitcher_id,
           plot_type = viz_args()$plot_type,
           data = data,

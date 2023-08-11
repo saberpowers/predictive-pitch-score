@@ -109,12 +109,21 @@ visualize_pitch_distrib <- function(model,
   }
 
   if (!is.null(data)) {
+
+    x_var_name <- switch(plot_type, "plate" = "plate_x", "break" = "horz_break")
+    y_var_name <- switch(plot_type, "plate" = "plate_z", "break" = "induced_vert_break")
+
+    # Attach TrackMan metrics if necessary (depends on which data we've fed in)
+    if (!all(c(x_var_name, y_var_name) %in% colnames(data))) {
+      data <- data |>
+        get_quadratic_coef() |>
+        get_trackman_metrics()
+    }
+
     data |>
-      get_quadratic_coef() |>
-      get_trackman_metrics() |>
       dplyr::mutate(
-        x = dplyr::case_when(plot_type == "plate" ~ plate_x, plot_type == "break" ~ horz_break),
-        y = dplyr::case_when(plot_type == "plate" ~ plate_z, plot_type == "break" ~ induced_vert_break)
+        x = !!rlang::sym(x_var_name),
+        y = !!rlang::sym(y_var_name)
       ) |>
       with(points(x = x, y = y, col = "white"))
   }
