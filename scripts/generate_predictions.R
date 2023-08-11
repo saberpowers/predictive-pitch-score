@@ -28,7 +28,7 @@ data <- pitch |>
 pitch_outcome_model <- readRDS("models/pitch_outcome_model.rds")
 stuff_model <- readRDS("models/stuff_model.rds")
   
-data$desc_score <- predict.pitch_outcome_model(pitch_outcome_model, newpitch = data)$pitch_value
+data$desc <- predict.pitch_outcome_model(pitch_outcome_model, newpitch = data)$pitch_value
 data$stuff <- predict(
     stuff_model,
     newdata = data |>
@@ -45,9 +45,9 @@ player <- jsonlite::fromJSON("https://statsapi.mlb.com/api/v1/sports/1/players")
 pitch_types <- c("FF", "SI", "FC", "SL", "CU", "KC", "CH", "FS")
 training_samples <- unique(data$training_sample)
 
-leaderboard_pred <- NULL
-
 for (ts in training_samples) {
+
+  leaderboard_pred <- NULL
 
   for (pt in pitch_types) {
 
@@ -68,7 +68,7 @@ for (ts in training_samples) {
     pitcher_id_list <- as.list(as.integer(names(context_list)))
 
     future::plan(strategy = future::multisession, workers = parallel::detectCores())
-    pred_score <- future.apply::future_mapply(
+    pred <- future.apply::future_mapply(
       FUN = simulate_pitch_score,
       pitcher_id = pitcher_id_list,
       context = context_list,
@@ -87,7 +87,7 @@ for (ts in training_samples) {
           pitcher_id = as.integer(pitcher_id_list),
           pitch_type = pt,
           training_sample = ts,
-          pred_score = pred_score
+          pred = pred
         )
       )
   }   # end for (pt in pitch_types)
@@ -100,13 +100,20 @@ for (ts in training_samples) {
     dplyr::group_by(pitcher_id, pitch_type) |>
     dplyr::summarize(
       n = dplyr::n(),
+      stuff_sd = sd(stuff),
+      desc_sd = sd(desc),
+      diff_sd = sd(desc - stuff),
       stuff = mean(stuff),
-      desc_score = mean(desc_score),
+      desc = mean(desc),
       .groups = "drop"
     ) |>
     dplyr::left_join(leaderboard_pred, by = c("pitcher_id", "pitch_type")) |>
     dplyr::left_join(player, by = c("pitcher_id" = "player_id")) |>
-    dplyr::select(pitcher_id, player_name, pitch_type, n, stuff, desc_score, pred_score)
+    dplyr::select(
+      pitcher_id, player_name, pitch_type, n, stuff, desc, pred, stuff_sd, desc_sd, diff_sd
+    )
 
   write.csv(leaderboard, row.names = FALSE, file = glue::glue("output/leaderboard/{ts}.csv"))
 }     # end for (ts in training_samples)
+
+logger::log_info("Done")
