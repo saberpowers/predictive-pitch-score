@@ -2,7 +2,7 @@ server <- function(input, output, session) {
 
   leaderboard_data <- shiny::eventReactive(
     eventExpr = input$update_leaderboard,
-    valueExpr = predpitchscore::leaderboard_2023 |>
+    valueExpr = predpitchscore::shiny_leaderboard_2023 |>
       dplyr::filter(pitch_type %in% input$pitch_types, !is.na(pred)) |>
       dplyr::mutate(
         split_by_pitch_type = input$split_by_pitch_type,
@@ -80,7 +80,7 @@ server <- function(input, output, session) {
           pre_strikes = viz_args()$strikes
         )
       },
-      height = 450,
+      height = 449,
       width = 360
     )
   }

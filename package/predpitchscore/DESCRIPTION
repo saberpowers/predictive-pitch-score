@@ -16,4 +16,5 @@ Imports:
   dplyr,
   glue,
   purrr,
-  tibble
+  tibble,
+  viridis

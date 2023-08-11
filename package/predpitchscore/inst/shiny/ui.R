@@ -1,6 +1,6 @@
 viz_tab <- function(slot) {
 
-  pitcher_table <- predpitchscore::leaderboard_2023 |>
+  pitcher_table <- predpitchscore::shiny_leaderboard_2023 |>
     dplyr::distinct(pitcher_id, player_name)
   pitcher_id_vec <- pitcher_table$pitcher_id
   names(pitcher_id_vec) <- pitcher_table$player_name
