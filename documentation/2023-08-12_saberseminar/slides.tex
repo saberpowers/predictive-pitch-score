@@ -147,15 +147,17 @@
         \centering
         Predicted Break Chart\\
         \vspace{4mm}
-        \includegraphics[width = 0.9\textwidth]{images/656302_SL_R_0_0_break.png}
+        \includegraphics[width = 0.8\textwidth]{images/656302_SL_R_0_0_break.png}
       \end{column}
       \begin{column}{0.5\textwidth}
         \centering
         Predicted Plate Location\\
         \vspace{4mm}
-        \includegraphics[width = 0.9\textwidth]{images/656302_SL_R_0_0_plate.png}
+        \includegraphics[width = 0.8\textwidth]{images/656302_SL_R_0_0_plate.png}
       \end{column}
     \end{columns}
+    \vfill
+    \centering \scriptsize {\color{ricerichblue}saberpowers}{\color{ricegray}.shinyapps.io/}{\color{ricerichblue}predictive-pitch-score}\\
   \end{frame}
 
   \begin{frame}{Dylan Cease's Slider vs RHB in All Counts}
@@ -165,6 +167,35 @@
   \end{frame}
 
   \begin{frame}{Does It Work?}
+    \centering
+    \includegraphics[width = \textwidth]{images/cor_overall_1.pdf}
+  \end{frame}
+
+  \begin{frame}{Does It Work?}
+    \centering
+    \includegraphics[width = \textwidth]{images/cor_overall_2.pdf}
+  \end{frame}
+
+  \begin{frame}{Does It Work?}
+    \centering
+    \includegraphics[width = \textwidth]{images/cor_overall_3.pdf}
+  \end{frame}
+
+  \begin{frame}{Does It Work?}
+    \centering
+    \includegraphics[width = \textwidth]{images/cor_overall_4.pdf}
+  \end{frame}
+ 
+  \begin{frame}{Does It Work?}
+    \centering
+    \includegraphics[width = \textwidth]{images/cor_by_sample_size.pdf}
+  \end{frame}
+ 
+  \begin{frame}{Leaderboard}
+    \centering
+    \includegraphics[width = \textwidth]{images/leaderboard.png}
+    \vfill
+    \centering \scriptsize {\color{ricerichblue}saberpowers}{\color{ricegray}.shinyapps.io/}{\color{ricerichblue}predictive-pitch-score}\\
   \end{frame}
 
   \begin{frame}{Conclusions}
@@ -172,8 +203,8 @@
     \begin{enumerate}
       \item Think more about the second source of noise\\
         (random variation in the pitch trajectory itself)
-      \item If pitch modeling is your starting point,\\
-        you're missing something {\color{ricegray} (I think)}
+      \item Pitch modeling predictions don't capture\\
+        {\it all} of the predictive information in a pitch
     \end{enumerate}
     ~\\
     What's coming up next:
