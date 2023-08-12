@@ -1,6 +1,11 @@
 
 devtools::load_all("package/predpitchscore")
 
+rice_blue <- rgb(0.000, 0.125, 0.357)
+rice_gray <- rgb(0.486, 0.494, 0.498)
+rice_rich_blue <- rgb(0.039, 0.314, 0.620)
+
+
 pitch <- data.table::fread("data/pitch/2022.csv")
 event <- data.table::fread("data/event/2022.csv")
 
@@ -52,7 +57,7 @@ barplot(
     stringr::str_to_title() |>
     rev(),
   horiz = TRUE,
-  col = rgb(0, 0.125, 0.357),   # Rice blue
+  col = rice_blue,
   las = 1,
   axes = FALSE
 )
@@ -89,7 +94,7 @@ barplot(
     stringr::str_to_title() |>
     rev(),
   horiz = TRUE,
-  col = rgb(0, 0.125, 0.357),   # Rice blue
+  col = rice_blue,
   las = 1,
   axes = FALSE
 )
@@ -154,3 +159,104 @@ side <- "R"
   dev.off()
 }
 
+
+# Produce validation plots ----
+
+cor_overall <- read.csv("output/validation/cor_overall.csv")
+cor_by_sample_size <- read.csv("output/validation/cor_by_sample_size.csv")
+
+plot_cor_overall <- function(cor_overall, num) {
+  col <- c(rice_blue, rice_gray, rice_rich_blue, rgb(1, 0.549, 0))
+  if (num < 4) {
+    col[(num + 1):4] <- rgb(1, 1, 1)
+  }
+  cor_overall |>
+    with(
+      Hmisc::errbar(
+        x = 1:4,
+        y = cor,
+        yplus = cor + sd,
+        yminus = cor - sd,
+        xlab = "",
+        ylab = "Correlation",
+        axes = FALSE,
+        col = col,
+        errbar.col = col
+      )
+    )
+  title(
+    main = "Out-of-Sample Correlation with Descriptive Model",
+    sub = "2021-22 Split Halves"
+  )
+  axis(1,
+    at = 1:num,
+    labels = c("Descriptive", "Descriptive (MR)", "Predictive", "Stuff/Desc (MR)")[1:num]
+  )
+  axis(2)
+  return(invisible())
+}
+
+{
+  pdf("figures/cor_overall_1.pdf", height = 5, width = 7)
+  plot_cor_overall(cor_overall = cor_overall, num = 1)
+  dev.off()
+
+  pdf("figures/cor_overall_2.pdf", height = 5, width = 7)
+  plot_cor_overall(cor_overall = cor_overall, num = 2)
+  dev.off()
+
+  pdf("figures/cor_overall_3.pdf", height = 5, width = 7)
+  plot_cor_overall(cor_overall = cor_overall, num = 3)
+  dev.off()
+
+  pdf("figures/cor_overall_4.pdf", height = 5, width = 7)
+  plot_cor_overall(cor_overall = cor_overall, num = 4)
+  dev.off()
+}
+
+{
+  pdf("figures/cor_by_sample_size.pdf", height = 6, width = 8)
+  cor_by_sample_size |>
+    dplyr::filter(method == "method_desc_mr") |>
+    with(
+      Hmisc::errbar(
+        x = pitches - 5,
+        y = cor,
+        yplus = cor + sd,
+        yminus = cor - sd,
+        col = rice_gray,
+        errbar.col = rice_gray,
+        axes = FALSE,
+        xlab = "# of Pitches (Training)",
+        ylab = "Correlation",
+        ylim = c(0.4, 1)
+      )
+    )
+  cor_by_sample_size |>
+    dplyr::filter(method == "method_pred") |>
+    with(
+      Hmisc::errbar(
+        x = pitches + 5,
+        y = cor,
+        yplus = cor + sd,
+        yminus = cor - sd,
+        col = rice_rich_blue,
+        errbar.col = rice_rich_blue,
+        add = TRUE
+      )
+    )
+  title(
+    main = "Out-of-Sample Correlation with Descriptive Model",
+    sub = "2021-22 Split Halves"
+  )
+  axis(1, at = seq(from = 100, to = 1000, by = 100))
+  axis(2)
+  legend("topleft",
+    legend = c("Predictive", "Descriptive (MR)"),
+    pch = 16,
+    lty = 1,
+    col = c(rice_rich_blue, rice_gray),
+    bty = "n"
+  )
+  dev.off()
+}
