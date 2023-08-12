@@ -58,6 +58,9 @@ viz_tab <- function(slot) {
 
 ui <- shiny::fluidPage(
   shiny::titlePanel("2023 MLB Predictive Pitch Score"),
+  "Data are updated through 8/4/23.",
+  "Pitch scores are on the scale of runs per 2000 pitches (lower = better).",
+  "Try using the two visualization slots to compare estimated distributions under different settings!",
   shiny::tabsetPanel(
     shiny::tabPanel(title = "Leaderboard",
       shiny::sidebarLayout(
