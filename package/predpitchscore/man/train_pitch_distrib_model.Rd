@@ -6,12 +6,21 @@
 \usage{
 train_pitch_distrib_model(
   data,
+  version = c("complete", "conditional"),
+  complete_model = NULL,
   pitch_char_vec = c("ax", "bx", "cx", "ay", "by", "cy", "az", "bz", "cz"),
   ...
 )
 }
 \arguments{
 \item{data}{dataframe of pitch and event data}
+
+\item{version}{character string, "complete" or "conditional". The complete model assumes league
+hyperparameters are unknown (takes longer), whereas the conditional model estimates pitcher
+parameters conditional on previously estimated league hyperparameters.}
+
+\item{complete_model}{a fitted "pitch_distrib_model" object required if version == "conditional",
+otherwise ignored}
 
 \item{pitch_char_vec}{character vector of pitch characteristics to model}
 
