@@ -22,20 +22,28 @@ extract_season <- function(year, cl = NULL) {
     schedule$resumeDate <- NA
   }
 
-  schedule_completed <- schedule |>
+  game <- schedule |>
     # Filter out non-NA resumeDate to get down to one row per game ID
     dplyr::filter(status.detailedState %in% c("Final", "Completed Early"), is.na(resumeDate)) |>
-    dplyr::arrange(officialDate)
+    dplyr::arrange(officialDate) |>
+    dplyr::select(
+      game_id = gamePk,
+      year = season,
+      date = officialDate,
+      team_id_away = teams.away.team.id,
+      team_id_home = teams.home.team.id,
+      venue_id = venue.id
+    )
 
   data_list <- pbapply::pblapply(
-    X = schedule_completed$gamePk,
+    X = game$game_id,
     # If we encounter an error, try a total of three times before returning NULL and moving on
-    FUN = function(game_pk) {
+    FUN = function(game_id) {
       is_success <- FALSE
       num_attempts <- 0
       while (!is_success & num_attempts < 3) {
         Sys.sleep(0.1)  # Avoid being rate-limited by statsapi
-        data <- try(predpitchscore:::extract_game(game_pk))
+        data <- try(predpitchscore:::extract_game(game_id))
         if (class(data) == "try-error") {
           num_attempts <- num_attempts + 1
           data <- NULL
@@ -53,10 +61,14 @@ extract_season <- function(year, cl = NULL) {
     tibble::add_column(year = year, .after = "game_id")
   pitch <- do.call(dplyr::bind_rows, args = lapply(data_list, function(x) x$pitch)) |>
     tibble::add_column(year = year, .after = "game_id")
+  play <- do.call(dplyr::bind_rows, args = lapply(data_list, function(x) x$play)) |>
+    tibble::add_column(year = year, .after = "game_id")
 
   data <- list(
     event = event,
-    pitch = pitch
+    pitch = pitch,
+    play = play,
+    game = game
   )
   
   return(data)
