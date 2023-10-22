@@ -147,7 +147,7 @@ extract_game <- function(game_id) {
     dplyr::filter(type == "action", !is.na(action_play_id)) |>
     dplyr::group_by(play_id = action_play_id) |>
     dplyr::summarize(
-      is_pickoff = any(grepl("Pickoff", event)),
+      is_pickoff = any(grepl("Pickoff", event) & !grepl("Pickoff Error", event)),
       is_stolen_base = any(grepl("Stolen Base", event)),
       is_caught_stealing = any(grepl("Caught Stealing", event)),
       is_defensive_indiff = any(grepl("Defensive Indiff", event)),
@@ -158,7 +158,7 @@ extract_game <- function(game_id) {
   runner_event <- event |>
     dplyr::transmute(
       event_index,
-      is_pickoff = grepl("Pickoff", event),
+      is_pickoff = grepl("Pickoff", event) & !grepl("Pickoff Error", event),
       is_stolen_base = grepl("Stolen Base", event),
       is_caught_stealing = grepl("Caught Stealing", event),
       is_defensive_indiff = grepl("Defensive Indiff", event),
