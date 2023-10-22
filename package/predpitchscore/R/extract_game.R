@@ -117,6 +117,11 @@ extract_game <- function(game_id) {
 
   substitution <- play_all |>
     dplyr::filter(is_substitution, position %in% 2:10) |>   # keep only players who occupy position
+    # Keep only the first substitution for each position in each event
+    dplyr::group_by(event_index, position) |>
+    dplyr::arrange(play_index) |>
+    dplyr::slice(1) |>
+    dplyr::ungroup() |>
     dplyr::transmute(event_index, position = as.integer(position), player_id)
   
   lineup_by_event_wide <- lineup_by_event |>
