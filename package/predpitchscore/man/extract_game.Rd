@@ -4,10 +4,10 @@
 \alias{extract_game}
 \title{Extract game}
 \usage{
-extract_game(game_pk)
+extract_game(game_id)
 }
 \arguments{
-\item{game_pk}{an integer primary key specifying the game to extract (character is okay)}
+\item{game_id}{an integer primary key specifying the game to extract (character is okay)}
 }
 \value{
 a list of two dataframes: \code{event} and \code{pitch}
