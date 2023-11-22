@@ -60,6 +60,7 @@ extract_game <- function(game_id) {
     post_disengagements = play_data$details$disengagementNum,
     description = play_data$details$description,
     event = play_data$details$event,
+    from_catcher = play_data$details$fromCatcher,
     runner_going = play_data$details$runnerGoing,
     is_out = play_data$details$isOut,
     pitch_type = play_data$details$type$code,
@@ -147,7 +148,7 @@ extract_game <- function(game_id) {
     dplyr::filter(type == "action", !is.na(action_play_id)) |>
     dplyr::group_by(play_id = action_play_id) |>
     dplyr::summarize(
-      is_pickoff = any(grepl("Pickoff", event) & !grepl("Pickoff Error", event)),
+      is_pickoff = any(grepl("Pickoff", event) & !grepl("Pickoff Error", event) & !from_catcher),
       is_stolen_base = any(grepl("Stolen Base", event)),
       is_caught_stealing = any(grepl("Caught Stealing", event)),
       is_defensive_indiff = any(grepl("Defensive Indiff", event)),
