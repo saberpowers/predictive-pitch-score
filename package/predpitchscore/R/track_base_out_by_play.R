@@ -31,7 +31,7 @@ track_base_out_by_play <- function(event_data) {
     dplyr::transmute(
       event_index,
       play_index,
-      event,
+      event_runner = event,  # sometimes the event (e.g. stolen base) is in runners data
       runner_id = runner$id,
       start_base = dplyr::coalesce(originBase, "batter"),
       end_base = dplyr::coalesce(end, "out"),
@@ -50,18 +50,19 @@ track_base_out_by_play <- function(event_data) {
 
   play_keys <- tibble::tibble(
     play_id = play_data$playId,
-    action_play_id = play_data$actionPlayId,
+    action_play_id = replace_null(play_data$actionPlayId),
     event_index = rep(event_data$about$atBatIndex, times = sapply(event_data$playEvents, nrow)),
-    play_index = play_data$index
+    play_index = play_data$index,
+    event_play = play_data$details$event  # sometimes the event (e.g. stolen base) is in play data
   )
 
-  # Handle the case where no play in the game has an action_play_id
-  if (is.null(play_keys$action_play_id)) {
-    play_keys$action_play_id <- NA
-  }
-
   runner_movement_consolidated <- play_keys |>
-    dplyr::transmute(play_id = dplyr::coalesce(play_id, action_play_id), event_index, play_index) |>
+    dplyr::transmute(
+      play_id = dplyr::coalesce(play_id, action_play_id),
+      event_index,
+      play_index,
+      event_play
+    ) |>
     dplyr::inner_join(runner_movement, by = c("event_index", "play_index")) |>
     dplyr::group_by(play_id, runner_id) |>
     dplyr::arrange(event_index, play_index) |>
@@ -70,11 +71,18 @@ track_base_out_by_play <- function(event_data) {
       end_base = end_base[dplyr::n()],
       outs = sum(end_base == "out"),
       runs = sum(end_base == "score"),
-      is_pickoff = any(grepl("Pickoff", event) & !grepl("Pickoff Error", event)),
-      is_pickoff_error = any(grepl("Pickoff Error", event)),
-      is_stolen_base = any(grepl("Stolen Base", event)),
-      is_caught_stealing = any(grepl("Caught Stealing", event)),
-      is_defensive_indiff = any(grepl("Defensive Indiff", event)),
+      # Check both `event_play` and `event_runners` for stolen base, etc.
+      # Usually it's in both, but sometimes only one or the other will have it.
+      is_pickoff = any(
+        grepl(
+          "Pickoff", c(event_play, event_runner)) &
+          !grepl("Pickoff Error", c(event_play, event_runner)
+        )
+      ),
+      is_pickoff_error = any(grepl("Pickoff Error", c(event_play, event_runner))),
+      is_stolen_base = any(grepl("Stolen Base", c(event_play, event_runner))),
+      is_caught_stealing = any(grepl("Caught Stealing", c(event_play, event_runner))),
+      is_defensive_indiff = any(grepl("Defensive Indiff", c(event_play, event_runner))),
       .groups = "drop"
     )
   

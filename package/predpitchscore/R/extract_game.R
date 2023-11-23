@@ -43,33 +43,25 @@ extract_game <- function(game_id) {
 
   play_data <- do.call(dplyr::bind_rows, args = event_data$playEvents)
 
-  replace_null <- function(x, replacement = NA) {
-    if (is.null(x)) {
-      return(replacement)
-    } else {
-      return(x)
-    }
-  }
-
   play_all <- tibble::tibble(
     play_id = play_data$playId,
-    action_play_id = play_data$actionPlayId,
+    action_play_id = replace_null(play_data$actionPlayId),
     game_id = game_id,
     event_index = rep(event_data$about$atBatIndex, times = sapply(event_data$playEvents, nrow)),
     play_index = play_data$index,
     pitch_number = play_data$pitchNumber,
     type = play_data$type,
-    is_substitution = play_data$isSubstitution,
+    is_substitution = replace_null(play_data$isSubstitution),
     player_id = play_data$player$id,
-    position = play_data$position$code,
+    position = replace_null(play_data$position$code),
     outs = play_data$count$outs,
     post_balls = play_data$count$balls,
     post_strikes = play_data$count$strikes,
     post_disengagements = replace_null(play_data$details$disengagementNum, replacement = 0),
     description = play_data$details$description,
     event = play_data$details$event,
-    from_catcher = play_data$details$fromCatcher,
-    runner_going = play_data$details$runnerGoing,
+    from_catcher = replace_null(play_data$details$fromCatcher),
+    runner_going = replace_null(play_data$details$runnerGoing),
     is_out = play_data$details$isOut,
     pitch_type = play_data$details$type$code,
     ax = play_data$pitchData$coordinates$aX,
@@ -80,7 +72,7 @@ extract_game <- function(game_id) {
     vz0 = play_data$pitchData$coordinates$vZ0,
     x0 = play_data$pitchData$coordinates$x0,
     z0 = play_data$pitchData$coordinates$z0,
-    extension = play_data$pitchData$extension,
+    extension = replace_null(play_data$pitchData$extension),
     strike_zone_top = play_data$pitchData$strikeZoneTop,
     strike_zone_bottom = play_data$pitchData$strikeZoneBottom,
     launch_speed = play_data$hitData$launchSpeed,
