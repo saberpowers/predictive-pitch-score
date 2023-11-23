@@ -45,7 +45,6 @@ track_base_out_by_event <- function(event_data) {
     dplyr::left_join(post_state, by = "event_index") |>
     dplyr::select(
       event_index,
-      dplyr::starts_with("mid_event_"),
       dplyr::starts_with("pre_"),
       dplyr::starts_with("post_")
     )

@@ -19,7 +19,7 @@ extract_game <- function(game_id) {
 
   event_data <- event_json$liveData$plays$allPlays
 
-  base_out_state <- track_base_out_state(event_data)
+  event_base_out_state <- track_base_out_by_event(event_data)
 
   event_without_fielder_id <- tibble::tibble(
     game_id = game_id,
@@ -36,12 +36,20 @@ extract_game <- function(game_id) {
       FUN = function(x) sum(dplyr::coalesce(x$movement$end, "") == "score")
     )
   ) |>
-    dplyr::left_join(base_out_state, by = "event_index")
+    dplyr::left_join(event_base_out_state, by = "event_index")
 
 
   # Extract play data ----
 
   play_data <- do.call(dplyr::bind_rows, args = event_data$playEvents)
+
+  replace_null <- function(x, replacement = NA) {
+    if (is.null(x)) {
+      return(replacement)
+    } else {
+      return(x)
+    }
+  }
 
   play_all <- tibble::tibble(
     play_id = play_data$playId,
@@ -57,7 +65,7 @@ extract_game <- function(game_id) {
     outs = play_data$count$outs,
     post_balls = play_data$count$balls,
     post_strikes = play_data$count$strikes,
-    post_disengagements = play_data$details$disengagementNum,
+    post_disengagements = replace_null(play_data$details$disengagementNum, replacement = 0),
     description = play_data$details$description,
     event = play_data$details$event,
     from_catcher = play_data$details$fromCatcher,
@@ -80,22 +88,23 @@ extract_game <- function(game_id) {
     hit_coord_x = play_data$hitData$coordinates$coordX,
     hit_coord_y = play_data$hitData$coordinates$coordY,
   ) |>
-  # Get pre-pitch count
+  # Get pre-pitch count and disengagements
   dplyr::group_by(game_id, event_index) |>
   # We have to track the number of disengagements throughout the end of each plate appearance.
   # For some reason, disengagementNum reverts to NA for the final pitch of each plate appearance.
   tidyr::fill(post_disengagements, .direction = "down") |>
-  tidyr::replace_na(list(post_disengagements= 0)) |>
+  tidyr::replace_na(list(post_disengagements = 0)) |>
   dplyr::mutate(
-    balls = dplyr::coalesce(dplyr::lag(post_balls, 1), 0),
-    strikes = dplyr::coalesce(dplyr::lag(post_strikes, 1), 0),
-    disengagements = dplyr::coalesce(dplyr::lag(post_disengagements, 1), 0),
+    pre_balls = dplyr::coalesce(dplyr::lag(post_balls, 1), 0),
+    pre_strikes = dplyr::coalesce(dplyr::lag(post_strikes, 1), 0),
+    pre_disengagements = dplyr::coalesce(dplyr::lag(post_disengagements, 1), 0),
   ) |>
   dplyr::ungroup()
 
   pitch <- play_all |>
     dplyr::filter(type == "pitch") |>
-    dplyr::select(play_id, game_id, event_index, play_index, pitch_number, outs, balls, strikes,
+    dplyr::select(play_id, game_id, event_index, play_index, pitch_number,
+      outs, balls = pre_balls, strikes = pre_strikes,
       description, pitch_type, ax, ay, az, vx0, vy0, vz0, x0, z0, extension,
       strike_zone_top, strike_zone_bottom, launch_speed, launch_angle, hit_coord_x, hit_coord_y
     )
@@ -139,62 +148,26 @@ extract_game <- function(game_id) {
 
   event <- event_without_fielder_id |>
     dplyr::left_join(lineup_by_event_wide, by = "event_index")
+  
+
+  # ----
  
+  play_base_out_state <- track_base_out_by_play(event_data)
 
-  # Extract runner plays ----
-
-  # Find baserunner non-play "actions"
-  runner_action <- play_all |>
-    dplyr::filter(type == "action", !is.na(action_play_id)) |>
-    dplyr::group_by(play_id = action_play_id) |>
-    dplyr::summarize(
-      is_pickoff = any(grepl("Pickoff", event) & !grepl("Pickoff Error", event) & !from_catcher),
-      is_stolen_base = any(grepl("Stolen Base", event)),
-      is_caught_stealing = any(grepl("Caught Stealing", event)),
-      is_defensive_indiff = any(grepl("Defensive Indiff", event)),
-      .groups = "drop"
-    )
-  
-  # Find baserunner plays that terminate innings (reflected by events rather than actions)
-  runner_event <- event |>
-    dplyr::transmute(
-      event_index,
-      is_pickoff = grepl("Pickoff", event) & !grepl("Pickoff Error", event),
-      is_stolen_base = grepl("Stolen Base", event),
-      is_caught_stealing = grepl("Caught Stealing", event),
-      is_defensive_indiff = grepl("Defensive Indiff", event),
-    )
-  
-  # Convert primary key of runner_event from event_index to last play_id of event
-  runner_play <- play_all |>
-    dplyr::filter(!is.na(play_id)) |>
-    dplyr::group_by(event_index) |>
-    dplyr::arrange(-play_index) |>  # get the last play_id of each event
-    dplyr::slice(1) |>
-    dplyr::ungroup() |>
-    dplyr::select(event_index, play_id) |>
-    dplyr::inner_join(runner_event, by = "event_index") |>
-    dplyr::select(play_id, is_pickoff, is_stolen_base, is_caught_stealing, is_defensive_indiff)
-  
-  # Combine runner plays from runner_action and runner_play
-  runner <- runner_action |>
-    dplyr::bind_rows(runner_play) |>
-    # Make sure we only keep one row per play. If multiple rows exist, we prefer the row from
-    # runner_action (which comes first) to the row from runner_play.
-    dplyr::group_by(play_id) |>
-    dplyr::slice(1) |>
-    dplyr::ungroup()
-  
   # This table includes all pitches, pickoff attempts, stepoffs and automatic balls/strikes
   play <- play_all |>
     dplyr::filter(!is.na(play_id)) |>   # remove non-play "actions" like stolen base attempts
-    dplyr::left_join(runner, by = "play_id") |>
+    dplyr::left_join(play_base_out_state, by = "play_id") |>
     tidyr::replace_na(
       list(is_stolen_base = FALSE, is_caught_stealing = FALSE, is_defensive_indiff = FALSE)
     ) |>
-    dplyr::select(play_id, game_id, event_index, play_index, pitch_number, outs, balls, strikes,
-      disengagements, type, runner_going,
-      is_pickoff, is_stolen_base, is_caught_stealing, is_defensive_indiff
+    dplyr::select(play_id, game_id, event_index, play_index, pitch_number,
+      pre_runner_1b_id, pre_runner_2b_id, pre_runner_3b_id, pre_outs, pre_balls, pre_strikes,
+      pre_disengagements,
+      runs_on_play,
+      post_runner_1b_id, post_runner_2b_id, post_runner_3b_id, post_outs, post_balls, post_strikes,
+      post_disengagements, type, runner_going, from_catcher,
+      is_pickoff, is_pickoff_error, is_stolen_base, is_caught_stealing, is_defensive_indiff
     )
 
 
