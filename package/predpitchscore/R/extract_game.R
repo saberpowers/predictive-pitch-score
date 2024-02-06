@@ -102,7 +102,24 @@ extract_game <- function(game_id) {
     )
  
 
-  # Extract fielder lineups and substitutions ----
+  # Extract fielder credits, fielder lineups and substitutions ----
+
+  fielder_credit <- lapply(
+    X = event_data$runners,
+    FUN = function(x) {
+      do.call(dplyr::bind_rows, args = x$credit)
+    }
+  )
+  first_fielder <- do.call(dplyr::bind_rows, args = fielder_credit) |>
+    tibble::add_column(
+      event_index = rep(event_data$about$atBatIndex, times = sapply(fielder_credit, nrow)),
+      .before = 1
+    ) |>
+    dplyr::group_by(event_index) |>
+    dplyr::slice(1) |>
+    # We're doing this weird thing instead of dplyr::select because `position` is itself a dataframe
+    # within the dataframe. I don't entirely understand this data structure.
+    with(tibble::tibble(event_index, first_fielder = position$code))
 
   starting_lineup_home <- extract_fielding_lineup(players = lineup_json$teams$home$players) |>
     tibble::add_column(half_inning = "top", .before = 1)
@@ -139,6 +156,7 @@ extract_game <- function(game_id) {
     tidyr::pivot_wider(names_from = name, values_from = player_id)
 
   event <- event_without_fielder_id |>
+    dplyr::left_join(first_fielder, by = "event_index") |>
     dplyr::left_join(lineup_by_event_wide, by = "event_index")
   
 
