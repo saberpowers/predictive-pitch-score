@@ -3,15 +3,19 @@
 #' Extract all regular season MLB games in a specified year.
 #' 
 #' @param year an integer specifying the year to extract
+#' @param level character string, "mlb" (default) or "aaa"
 #' @param cl optional cluster object for parallel computation, default is NULL (not parallel)
 #' 
 #' @return a list of two dataframes: `event` and `pitch`
 #' 
 #' @export
 #' 
-extract_season <- function(year, cl = NULL) {
+extract_season <- function(year, level = c("mlb", "aaa"), cl = NULL) {
 
-  schedule_filter <- glue::glue("sportId=1&gameType=R&startDate=01/01/{year}&endDate=12/31/{year}")
+  level <- match.arg(level)
+  sport_id <- switch(level, mlb = 1, aaa = 11)
+
+  schedule_filter <- glue::glue("sportId={sport_id}&gameType=R&startDate=01/01/{year}&endDate=12/31/{year}")
   endpoint <- glue::glue("http://statsapi.mlb.com:80/api/v1/schedule?{schedule_filter}")
 
   schedule_json <- jsonlite::fromJSON(endpoint, flatten = TRUE)
