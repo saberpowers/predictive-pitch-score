@@ -4,12 +4,12 @@
 \alias{train_hit_outcome_model}
 \title{Train hit outcome model}
 \usage{
-train_hit_outcome_model(pitch, event, base_out_run_exp, tune = FALSE)
+train_hit_outcome_model(pitch, play, base_out_run_exp, tune = FALSE)
 }
 \arguments{
 \item{pitch}{dataframe of pitch data from \code{\link{extract_season}}}
 
-\item{event}{dataframe of event data from \code{\link{extract_season}}}
+\item{play}{dataframe of play data from \code{\link{extract_season}}}
 
 \item{base_out_run_exp}{dataframe of base-out run expectancy from
 \code{\link{compute_base_out_run_exp}}}

@@ -15,10 +15,10 @@ compute_base_out_run_exp <- function(event) {
     dplyr::filter(event != "Game Advisory") |>
     dplyr::mutate(
       pre_base_out_state = paste0(
-        1 * !is.na(pre_event_runner_1b_id),
-        1 * !is.na(pre_event_runner_2b_id),
-        1 * !is.na(pre_event_runner_3b_id),
-        pre_event_outs
+        1 * !is.na(pre_runner_1b_id),
+        1 * !is.na(pre_runner_2b_id),
+        1 * !is.na(pre_runner_3b_id),
+        pre_outs
       ),
       post_base_out_state = paste0(
         1 * !is.na(post_runner_1b_id),
