@@ -4,10 +4,12 @@
 \alias{extract_season}
 \title{Extract season}
 \usage{
-extract_season(year, cl = NULL)
+extract_season(year, level = c("mlb", "aaa"), cl = NULL)
 }
 \arguments{
 \item{year}{an integer specifying the year to extract}
+
+\item{level}{character string, "mlb" (default) or "aaa"}
 
 \item{cl}{optional cluster object for parallel computation, default is NULL (not parallel)}
 }

@@ -14,27 +14,25 @@ compute_pitch_value <- function(pitch_pred, count_value) {
 
   pitch_value <- pitch_pred |>
     dplyr::mutate(
-      balls_plus_one = pre_balls + 1,
-      strikes_plus_one = pre_strikes + 1,
-      strikes_after_foul = ifelse(pre_strikes == 2, 2, pre_strikes + 1)
+      balls_plus_one = balls + 1,
+      strikes_plus_one = strikes + 1,
+      strikes_after_foul = ifelse(strikes == 2, 2, strikes + 1)
     ) |>
     # Attach count linear weight resulting from a ball
-    dplyr::left_join(count_value,
-      by = c("pre_balls" = "balls", "pre_strikes" = "strikes")
-    ) |>
+    dplyr::left_join(count_value, by = c("balls", "strikes")) |>
     # Attach count linear weight resulting from a ball
     dplyr::left_join(count_value,
-      by = c("balls_plus_one" = "balls", "pre_strikes" = "strikes"),
+      by = c("balls_plus_one" = "balls", "strikes"),
       suffix = c("", "_ball")
     ) |>
     # Attach count linear weight resulting from a strike
     dplyr::left_join(count_value,
-      by = c("pre_balls" = "balls", "strikes_plus_one" = "strikes"),
+      by = c("balls", "strikes_plus_one" = "strikes"),
       suffix = c("", "_strike")
     ) |>
-    # Attach count linear weight resulting from a strike
+    # Attach count linear weight resulting from a foul
     dplyr::left_join(count_value,
-      by = c("pre_balls" = "balls", "strikes_after_foul" = "strikes"),
+      by = c("balls", "strikes_after_foul" = "strikes"),
       suffix = c("", "_foul")
     ) |>
     # Compute pitch value

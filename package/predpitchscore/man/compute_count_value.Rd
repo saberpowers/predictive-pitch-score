@@ -4,10 +4,10 @@
 \alias{compute_count_value}
 \title{Compute count value}
 \usage{
-compute_count_value(pitch, event, base_out_run_exp)
+compute_count_value(play, event, base_out_run_exp)
 }
 \arguments{
-\item{pitch}{dataframe of pitch data from \code{\link{extract_season}}}
+\item{play}{dataframe of play data from \code{\link{extract_season}}}
 
 \item{event}{dataframe of event data from \code{\link{extract_season}}}
 

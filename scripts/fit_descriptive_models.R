@@ -1,10 +1,11 @@
 
 devtools::load_all("package/predpitchscore")
 
-year <- 2022
+year <- 2023
+level <- "mlb"
 models_to_fit <- c("hit_outcome",
   "pitch_swing", "pitch_hbp", "pitch_strike", "pitch_contact", "pitch_fair", "pitch_hit",
-  "pitch_stuff"
+  "pitch_value", "pitch_stuff"
 )
 tune <- FALSE
 verbose <- TRUE
@@ -15,8 +16,9 @@ if (verbose) {
   logger::log_info("Loading data")
 }
 
-pitch <- data.table::fread(glue::glue("data/pitch/{year}.csv"))
-event <- data.table::fread(glue::glue("data/event/{year}.csv"))
+pitch <- data.table::fread(glue::glue("data/pitch/{level}/{year}.csv"))
+play <- data.table::fread(glue::glue("data/play/{level}/{year}.csv"))
+event <- data.table::fread(glue::glue("data/event/{level}/{year}.csv"))
 
 
 # Fit the models ----
@@ -28,7 +30,7 @@ if (verbose) {
 base_out_run_exp <- compute_base_out_run_exp(event)
 
 count_value <- compute_count_value(
-  pitch = pitch,
+  play = play,
   event = event,
   base_out_run_exp = base_out_run_exp
 )
@@ -36,7 +38,7 @@ count_value <- compute_count_value(
 if ("hit_outcome" %in% models_to_fit) {
   hit_outcome_model <- train_hit_outcome_model(
     pitch = pitch,
-    event = event,
+    play = play,
     base_out_run_exp = base_out_run_exp,
     tune = tune
   )

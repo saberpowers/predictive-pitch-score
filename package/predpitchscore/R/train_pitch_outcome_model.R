@@ -38,7 +38,7 @@ train_pitch_outcome_model <- function(pitch,
   
   regression_data <- pitch |>
     # Make sure we don't duplicate columns
-    dplyr::select(pre_balls, pre_strikes, is_rhb, strike_zone_top, strike_zone_bottom, hit_pred, true_value, x0, z0) |>
+    dplyr::select(balls, strikes, is_rhb, strike_zone_top, strike_zone_bottom, hit_pred, true_value, x0, z0) |>
     dplyr::bind_cols(outcome_model_features, outcome_tree, trackman_metrics) |>
     # NOTE: Somehow, the batter's swing decision leaks into the strike zone top/bottom variables.
     # It is approximately true that when strike zone top/bottom is rounded to two digits, the
@@ -50,7 +50,7 @@ train_pitch_outcome_model <- function(pitch,
     ) |>
     dplyr::filter(
       !is.na(extension),
-      pre_balls < 4, pre_strikes < 3,
+      balls < 4, strikes < 3,
       strike_zone_top < 4.25, strike_zone_bottom > 1
     )
   
@@ -155,7 +155,7 @@ train_pitch_outcome_model <- function(pitch,
 #' 
 config_pitch_outcome_xgb <- list(
 
-  features_context = c("pre_balls", "pre_strikes", "is_rhb", "strike_zone_top", "strike_zone_bottom"),
+  features_context = c("balls", "strikes", "is_rhb", "strike_zone_top", "strike_zone_bottom"),
   features_pitch = c("plate_x", "plate_z", "plate_vx", "plate_vy", "plate_vz", "ax", "ay", "az", "extension"),
   features_stuff = c("release_x", "release_y", "release_z", "release_speed", "induced_vert_break", "horz_break"),
 
@@ -313,14 +313,14 @@ predict.pitch_outcome_model <- function(object, newpitch, ...) {
 
   newdata <- newpitch |>
     # Make sure we don't duplicate columns
-    dplyr::select(pre_balls, pre_strikes, is_rhb, strike_zone_top, strike_zone_bottom, x0, z0) |>
+    dplyr::select(balls, strikes, is_rhb, strike_zone_top, strike_zone_bottom, x0, z0) |>
     dplyr::bind_cols(outcome_model_features, trackman_metrics) |>
     dplyr::select(dplyr::all_of(object$features)) |>
     as.matrix()
 
   pitch_pred <- tibble::tibble(
-    pre_balls = newpitch$pre_balls,
-    pre_strikes = newpitch$pre_strikes,
+    balls = newpitch$balls,
+    strikes = newpitch$strikes,
     is_rhb = newpitch$is_rhb,
     strike_zone_top = newpitch$strike_zone_top,
     strike_zone_bottom = newpitch$strike_zone_bottom,
