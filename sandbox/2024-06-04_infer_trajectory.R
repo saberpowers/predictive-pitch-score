@@ -44,6 +44,10 @@ infer_trajectory <- function(release_x,             # feet
   by <- 0
   by_update <- release_speed    # start by guessing that all velocity moves in the y direction
 
+  # SP: We are starting with a guess of by and then iteratively updating the other parameters,
+  # which can be calculated from `by` (and then `by` can be updated from these parameters).
+  # There may be a way to solve this set of equations without iteration, and I can't guarantee
+  # that the iteration will converge.
   while (max(abs(by - by_update)) > convergence_treshold) {
 
     iteration <- iteration + 1
