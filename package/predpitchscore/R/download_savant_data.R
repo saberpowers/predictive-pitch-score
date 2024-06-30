@@ -21,10 +21,7 @@ download_savant_data <- function(start_date, end_date, cl = NULL, verbose = FALS
   # data, but more days would risk hitting the 25,000-row limit.
   days <- as.numeric(as.Date(end_date) - as.Date(start_date))
   start_date_seq <- as.Date(start_date) + seq(from = 0, by = 5, to = days)
-#  end_date_seq <- start_date_seq + 4
-#  end_date_seq[length(end_date_seq)] <- end_date
 
-  .time = Sys.time()
   data_list <- pbapply::pblapply(
     X = start_date_seq,
     FUN = function(start_date) {
@@ -41,26 +38,6 @@ download_savant_data <- function(start_date, end_date, cl = NULL, verbose = FALS
     },
     cl = cl
   )
-  print(Sys.time() - .time)
-
-#  data <- NULL
-#  for (i in 1:length(start_date_seq)) {
-#
-#    if (verbose) {
-#      message(glue::glue("Downloading Savant data from {start_date_seq[i]} to {end_date_seq[i]}"))
-#    }
-#
-#    url <- glue::glue("{base_url}&game_date_gt={start_date_seq[i]}&game_date_lt={end_date_seq[i]}")
-#    data_i <- read.csv(url(url))
-#
-#    if (nrow(data_i) == 25000) {
-#      warning(
-#        glue::glue("Exactly 25,000 rows returned for {start_date_seq[i]} to {end_date_seq[i]}")
-#      )
-#    }
-#
-#    data <- dplyr::bind_rows(data, data_i)
-#  }
 
   data <- do.call(dplyr::bind_rows, args = data_list)
 
