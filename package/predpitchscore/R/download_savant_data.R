@@ -6,13 +6,12 @@
 #' @param start_date first date included in the download
 #' @param end_date last date included in the download
 #' @param cl optional cluster object for parallel computation, default is NULL (not parallel)
-#' @param verbose logical, should progress be printed?, defaults to FALSE
 #' 
 #' @return a dataframe with 94 columns and one row per pitch, with all available data
 #' 
 #' @export
 #' 
-download_savant_data <- function(start_date, end_date, cl = NULL, verbose = FALSE) {
+download_savant_data <- function(start_date, end_date, cl = NULL) {
 
   base_url <- "https://baseballsavant.mlb.com/statcast_search/csv?all=true&type=details"
 
