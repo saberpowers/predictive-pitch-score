@@ -4,7 +4,7 @@
 \alias{download_savant_data}
 \title{Download Statcast data from Baseball Savant}
 \usage{
-download_savant_data(start_date, end_date, cl = NULL, verbose = FALSE)
+download_savant_data(start_date, end_date, cl = NULL)
 }
 \arguments{
 \item{start_date}{first date included in the download}
@@ -12,8 +12,6 @@ download_savant_data(start_date, end_date, cl = NULL, verbose = FALSE)
 \item{end_date}{last date included in the download}
 
 \item{cl}{optional cluster object for parallel computation, default is NULL (not parallel)}
-
-\item{verbose}{logical, should progress be printed?, defaults to FALSE}
 }
 \value{
 a dataframe with 94 columns and one row per pitch, with all available data
