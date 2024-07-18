@@ -1,7 +1,7 @@
 
 devtools::load_all("package/predpitchscore")
 
-year <- 2023
+year_string <- "2022:2024"
 level <- "mlb"
 models_to_fit <- c("hit_outcome",
   "pitch_swing", "pitch_hbp", "pitch_strike", "pitch_contact", "pitch_fair", "pitch_hit",
@@ -16,9 +16,19 @@ if (verbose) {
   logger::log_info("Loading data")
 }
 
-pitch <- data.table::fread(glue::glue("data/pitch/{level}/{year}.csv"))
-play <- data.table::fread(glue::glue("data/play/{level}/{year}.csv"))
-event <- data.table::fread(glue::glue("data/event/{level}/{year}.csv"))
+years <- eval(parse(text = year_string))
+pitch <- NULL
+play <- NULL
+event <- NULL
+
+for (year in years) {
+  pitch <- data.table::fread(glue::glue("data/pitch/{level}/{year}.csv")) |>
+    dplyr::bind_rows(pitch)
+  play <- data.table::fread(glue::glue("data/play/{level}/{year}.csv")) |>
+    dplyr::bind_rows(play)
+  event <- data.table::fread(glue::glue("data/event/{level}/{year}.csv")) |>
+    dplyr::bind_rows(event)
+}
 
 
 # Fit the models ----
@@ -105,12 +115,17 @@ if (verbose) {
   logger::log_info("Saving models")
 }
 
-write.csv(base_out_run_exp, file = "models/base_out_run_exp.csv", row.names = FALSE)
-write.csv(count_value, file = "models/count_value.csv", row.names = FALSE)
-if ("hit_outcome" %in% models_to_fit) {
-  saveRDS(hit_outcome_model, file = "models/hit_outcome_model.rds")
+dir <- glue::glue("models/{level}/{year_string}")
+if (!exists(dir)) {
+  dir.create(dir, recursive = TRUE)
 }
-saveRDS(pitch_outcome_model, file = "models/pitch_outcome_model.rds")
+
+write.csv(base_out_run_exp, file = glue::glue("{dir}/base_out_run_exp.csv"), row.names = FALSE)
+write.csv(count_value, file = glue::glue("{dir}/count_value.csv"), row.names = FALSE)
+if ("hit_outcome" %in% models_to_fit) {
+  saveRDS(hit_outcome_model, file = glue::glue("{dir}/hit_outcome_model.rds"))
+}
+saveRDS(pitch_outcome_model, file = glue::glue("{dir}/pitch_outcome_model.rds"))
 if ("pitch_stuff" %in% models_to_fit) {
-  saveRDS(stuff_model, file = "models/stuff_model.rds")
+  saveRDS(stuff_model, file = glue::glue("{dir}/stuff_model.rds"))
 }
