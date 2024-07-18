@@ -1,5 +1,5 @@
 Package: predpitchscore
-Title: What the Package Does (One Line, Title Case)
+Title: Predictive Pitch Score
 Version: 0.0.0.9000
 Authors@R: c(
   person("Scott", "Powers", role = c("aut", "cre"), email = "scott.powers@rice.edu"),
@@ -17,4 +17,10 @@ Imports:
   glue,
   purrr,
   tibble,
+  tidyr,
   viridis
+Suggests:
+  logger,
+  optparse,
+  parallel,
+  xgboost
