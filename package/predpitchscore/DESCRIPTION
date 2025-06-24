@@ -1,6 +1,6 @@
 Package: predpitchscore
 Title: Predictive Pitch Score
-Version: 1.0
+Version: 1.0.0
 Authors@R: c(
   person("Scott", "Powers", role = c("aut", "cre"), email = "scott.powers@rice.edu"),
   person("Vicente", "Iglesias", role = "aut"))
