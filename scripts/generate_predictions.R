@@ -1,15 +1,21 @@
 
 devtools::load_all("package/predpitchscore")
 
-year <- 2022
-split_even_odd <- TRUE
-version <- "conditional"
-verbose <- TRUE
+# Parse command line options ----
+
+opt_list <- list(
+  optparse::make_option(c("-y", "--year"), type = "integer", default = 2022),
+  optparse::make_option(c("-m", "--model_version"), type = "character", default = "complete"),
+  optparse::make_option(c("-s", "--split_even_odd"), action = "store_true", default = FALSE),
+  optparse::make_option(c("-v", "--verbose"), action = "store_true", default = FALSE)
+)
+opt <- optparse::parse_args(optparse::OptionParser(option_list = opt_list))
+
 
 # Load data and models ----
 
-pitch <- data.table::fread(glue::glue("data/pitch/{year}.csv"))
-event <- data.table::fread(glue::glue("data/event/{year}.csv"))
+pitch <- data.table::fread(glue::glue("data/pitch/mlb/{opt$year}.csv"))
+event <- data.table::fread(glue::glue("data/event/mlb/{opt$year}.csv"))
 
 data <- pitch |>
   dplyr::left_join(event, by = c("year", "game_id", "event_index")) |>
@@ -17,9 +23,9 @@ data <- pitch |>
   dplyr::mutate(
     is_rhb = as.numeric(bat_side == "R"),
     training_sample = dplyr::case_when(
-      !split_even_odd ~ as.character(year),
-      split_even_odd & game_id %% 2 == 0 ~ glue::glue("{year}_even"),
-      split_even_odd & game_id %% 2 == 1 ~ glue::glue("{year}_odd")
+      !opt$split_even_odd ~ as.character(year),
+      opt$split_even_odd & game_id %% 2 == 0 ~ glue::glue("{opt$year}_even"),
+      opt$split_even_odd & game_id %% 2 == 1 ~ glue::glue("{opt$year}_odd")
     )
   ) |>
   get_quadratic_coef() |>
@@ -51,11 +57,13 @@ for (ts in training_samples) {
 
   for (pt in pitch_types) {
 
-    if (verbose) {
+    if (opt$verbose) {
       logger::log_info("Simulating {ts} {pt} predictive pitch scores")
     }
 
-    pitch_distrib_model <- readRDS(glue::glue("models/distribution/{version}/{pt}/{ts}.rds"))
+    pitch_distrib_model <- readRDS(
+      glue::glue("models/distribution/{opt$model_version}/{pt}/{ts}.rds")
+    )
 
     context <- data |>
       dplyr::filter(training_sample == ts, pitch_type == pt)

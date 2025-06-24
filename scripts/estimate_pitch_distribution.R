@@ -1,37 +1,43 @@
 
 devtools::load_all("package/predpitchscore")
 
-year <- 2022
-split_even_odd <- TRUE
-version <- "conditional"
-iter <- 15000
-tol_param <- 1e-8
-verbose <- TRUE
+# Parse command line options ----
 
-if (verbose) {
+opt_list <- list(
+  optparse::make_option(c("-y", "--year"), type = "integer", default = 2022),
+  optparse::make_option(c("-m", "--model_version"), type = "character", default = "complete"),
+  optparse::make_option(c("-s", "--split_even_odd"), action = "store_true", default = FALSE),
+  optparse::make_option(c("-i", "--iterations"), type = "integer", default = 15000),
+  optparse::make_option(c("-t", "--tolerance"), type = "numeric", default = 1e-8),
+  optparse::make_option(c("-v", "--verbose"), action = "store_true", default = FALSE)
+)
+opt <- optparse::parse_args(optparse::OptionParser(option_list = opt_list))
+
+if (opt$verbose) {
   logger::log_info(
-    "Running with year: {year}, split_even_odd: {split_even_odd}, version: {version}, iter: {iter}, tol_param: {tol_param}"
+    "Running with year: {opt$year}, split_even_odd: {opt$split_even_odd},",
+    " version: {opt$model_version}, iterations: {opt$iterations}, tolerance: {opt$tolerance}"
   )
 }
 
 
 # Load the data ----
 
-if (verbose) {
+if (opt$verbose) {
   logger::log_info("Loading data")
 }
 
-pitch <- data.table::fread(glue::glue("data/pitch/{year}.csv"))
-event <- data.table::fread(glue::glue("data/event/{year}.csv"))
+pitch <- data.table::fread(glue::glue("data/pitch/mlb/{opt$year}.csv"))
+event <- data.table::fread(glue::glue("data/event/mlb/{opt$year}.csv"))
 
 data <- pitch |>
   dplyr::left_join(event, by = c("year", "game_id", "event_index")) |>
   dplyr::filter(pitch_type %in% c("FF", "SI", "FC", "SL", "CU", "KC", "CH", "FS")) |>
   dplyr::mutate(
     training_sample = dplyr::case_when(
-      !split_even_odd ~ as.character(year),
-      split_even_odd & game_id %% 2 == 0 ~ glue::glue("{year}_even"),
-      split_even_odd & game_id %% 2 == 1 ~ glue::glue("{year}_odd")
+      !opt$split_even_odd ~ as.character(opt$year),
+      opt$split_even_odd & game_id %% 2 == 0 ~ glue::glue("{opt$year}_even"),
+      opt$split_even_odd & game_id %% 2 == 1 ~ glue::glue("{opt$year}_odd")
     ),
     batch = paste(pitch_type, training_sample, sep = "_")
   )
@@ -53,7 +59,7 @@ batch_args <- list()
 for (b in 1:nrow(batch_info)) {
 
   # Load previously estimated complete model (if necessary)
-  if (version == "conditional") {
+  if (opt$model_version == "conditional") {
     model_file <- glue::glue("{batch_info$pitch_type[b]}/{batch_info$training_sample[b]}.rds")
     complete_model <- readRDS(glue::glue("models/distribution/complete/{model_file}"))
   } else {
@@ -70,7 +76,7 @@ for (b in 1:nrow(batch_info)) {
 
 # Fit the models ----
 
-if (verbose) {
+if (opt$verbose) {
   logger::log_info("Fitting models")
 }
 
@@ -88,24 +94,24 @@ pitch_distrib_model <- future.apply::future_lapply(
     return(model)
   },
   future.seed = TRUE,
-  version = version,
-  iter = iter,
-  tol_param = tol_param
+  version = opt$model_version,
+  iter = opt$iterations,
+  tol_param = opt$tolerance
 )
 future::plan(strategy = future::sequential)
 
 
 # Save the models ----
 
-if (verbose) {
+if (opt$verbose) {
   logger::log_info("Saving models")
 }
 
 for (b in 1:nrow(batch_info)) {
+  dir <- file.path("models", "distribution", opt$model_version, batch_info$pitch_type[b])
+  dir.create(dir, showWarnings = FALSE, recursive = TRUE)
   saveRDS(
     pitch_distrib_model[[batch_info$batch[b]]],
-    file = glue::glue(
-      "models/distribution/{version}/{batch_info$pitch_type[b]}/{batch_info$training_sample[b]}.rds"
-    )
+    file = file.path(dir, paste0(batch_info$training_sample[b], ".rds"))
   )
 }
