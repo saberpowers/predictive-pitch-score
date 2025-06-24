@@ -1,6 +1,6 @@
 Package: predpitchscore
 Title: Predictive Pitch Score
-Version: 0.0.0.9000
+Version: 1.0.0
 Authors@R: c(
   person("Scott", "Powers", role = c("aut", "cre"), email = "scott.powers@rice.edu"),
   person("Vicente", "Iglesias", role = "aut"))
@@ -20,7 +20,11 @@ Imports:
   tidyr,
   viridis
 Suggests:
+  cmdstanr,
+  future,
+  future.apply,
   logger,
   optparse,
   parallel,
+  sabRmetrics,
   xgboost
