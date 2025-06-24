@@ -41,7 +41,7 @@ compute_count_value <- function(play, event, base_out_run_exp) {
 
   # Compute average change in run expectancy by count
   nonterminal_value <- data |>
-    dplyr::group_by(balls = pre_balls, strikes = pre_strikes) |>
+    dplyr::group_by(pre_balls, pre_strikes) |>
     dplyr::summarize(
       count_value = mean(runs_on_play + post_exp_runs - pre_exp_runs),
       .groups = "drop"

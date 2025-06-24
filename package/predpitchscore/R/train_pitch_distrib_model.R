@@ -31,8 +31,8 @@ train_pitch_distrib_model <- function(data,
     dplyr::filter(
       !is.na(extension),
       sqrt(vx0^2 + vy0^2 + vz0^2) >= 70,
-      pre_balls < 4,
-      pre_strikes < 3
+      balls < 4,
+      strikes < 3
     ) |>
     # Filter out pitchers with insufficient pitch counts
     dplyr::group_by(year, pitcher_id) |>
@@ -47,7 +47,7 @@ train_pitch_distrib_model <- function(data,
       bx = ifelse(pitch_hand == "L", -1, 1) * bx,
       cx = ifelse(pitch_hand == "L", -1, 1) * cx,
       same_hand = as.numeric(pitch_hand == bat_side),
-      bsh_num = same_hand * 12 + pre_balls * 3 + pre_strikes + 1
+      bsh_num = same_hand * 12 + balls * 3 + strikes + 1
     )
   
   # Record the hand of each pitcher to be used later when producing simulations
@@ -61,7 +61,7 @@ train_pitch_distrib_model <- function(data,
       dplyr::across(
         .cols = dplyr::all_of(
           c(pitch_char_vec,
-            "pre_balls", "pre_strikes", "same_hand", "strike_zone_top", "strike_zone_bottom"
+            "balls", "strikes", "same_hand", "strike_zone_top", "strike_zone_bottom"
           )
         ),
         .fns = list(mean = mean, sd = sd)
@@ -76,7 +76,7 @@ train_pitch_distrib_model <- function(data,
         .fns = ~ (. - mean(.)) / sd(.)
       ),
       dplyr::across(
-        .cols = c(pre_balls, pre_strikes, same_hand),
+        .cols = c(balls, strikes, same_hand),
         .fns = ~ . - mean(.)
       )
     )
@@ -110,8 +110,8 @@ train_pitch_distrib_model <- function(data,
       v = pitch_trajectory_coefficients,
       sz_top = strike_zone_top,
       sz_bottom = strike_zone_bottom,
-      balls = pre_balls,
-      strikes = pre_strikes,
+      balls = balls,
+      strikes = strikes,
       hand = same_hand,
       bsh = bsh_num,
       p = pitcher_num,
@@ -192,7 +192,7 @@ initialize_pitch_distrib_model <- function(data_standardized, pitch_char_vec) {
 
   data_standardized_long <- data_standardized |>
     dplyr::select(
-      play_id, pitcher_num, bsh_num, pre_balls, pre_strikes, same_hand,
+      play_id, pitcher_num, bsh_num, balls, strikes, same_hand,
       dplyr::all_of(pitch_char_vec)
     ) |>
     tidyr::pivot_longer(cols = dplyr::all_of(pitch_char_vec), names_to = "pitch_char")
@@ -203,8 +203,8 @@ initialize_pitch_distrib_model <- function(data_standardized, pitch_char_vec) {
       n = dplyr::n(),
       mean = mean(value),
       sd = tidyr::replace_na(sd(value), 0.5),
-      nu = tidyr::replace_na(cov(value, pre_balls) / (0.001 + var(pre_balls)), 0),
-      xi = tidyr::replace_na(cov(value, pre_strikes)/ (0.001 + var(pre_strikes)), 0),
+      nu = tidyr::replace_na(cov(value, balls) / (0.001 + var(balls)), 0),
+      xi = tidyr::replace_na(cov(value, strikes)/ (0.001 + var(strikes)), 0),
       pi = tidyr::replace_na(cov(value, same_hand) / (0.001 + var(same_hand)), 0),
       .groups = "drop"
     ) |>
