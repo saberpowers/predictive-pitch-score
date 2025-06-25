@@ -1,10 +1,10 @@
 Package: predpitchscore
 Title: Predictive Pitch Score
-Version: 1.0.0
+Version: 1.0.1
 Authors@R: c(
   person("Scott", "Powers", role = c("aut", "cre"), email = "scott.powers@rice.edu"),
   person("Vicente", "Iglesias", role = "aut"))
-Description: What the package does (one paragraph).
+Description: This package contains code for estimating pitch outcome models and pitch distribution models, as well as combining them to create predictive pitch scores.
 License: GNU General Public License v3
 LazyData: true
 Encoding: UTF-8
