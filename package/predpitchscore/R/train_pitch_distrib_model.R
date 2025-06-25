@@ -262,29 +262,28 @@ initialize_pitch_distrib_model <- function(data_standardized, pitch_char_vec) {
     dplyr::select(dplyr::all_of(pitch_char_vec)) |>
     as.matrix()
 
-  bsh_params <- data_standardized |>
+  bsh_params_raw <- data_standardized |>
     dplyr::group_by(bsh_num) |>
     dplyr::summarize(
-      dplyr::across(
-        .cols = dplyr::all_of(pitch_char_vec),
-        .fns = list(mean = mean, sd = sd)
-      )
+      dplyr::across(dplyr::all_of(pitch_char_vec), list(mean = mean, sd = sd, n = length)),
+      .groups = "drop"
     )
 
-  # Fill in any missing bsh_params
-  full_bsh_params <- bsh_params
-  for (i in 1:24) {
-    row <- bsh_params |>
-      dplyr::filter(bsh_num == i)
-    if (length(row$bsh_num) == 1) {
-      full_bsh_params[i,  ] <- row
-    } else {
-      full_bsh_params[i, 1] <- i
-      full_bsh_params[i, 2:10] <- 0
-      full_bsh_params[i, 11:19] <- 1
-    }
-  }
-  bsh_params <- full_bsh_params
+  # It's possible that some *rows* are missing from bsh_params, so we need to identify those
+  # missing rows and replace them with placeholder values
+  bsh_params <- bsh_params_raw |>
+    dplyr::mutate(
+      bsh_num = 1:dplyr::n(),
+      dplyr::across(dplyr::ends_with("_n"), \(x) 1),
+      dplyr::across(dplyr::ends_with("_mean"), \(x) 0),
+      dplyr::across(dplyr::ends_with("_sd"), \(x) 1)
+    )
+  bsh_params[bsh_params$bsh_num, ] <- bsh_params_raw
+  
+  bsh_ns <- bsh_params |>
+    dplyr::select(dplyr::ends_with("_n")) |>
+    as.matrix() |>
+    tidyr::replace_na(1)
   
   bsh_means <- bsh_params |>
     dplyr::select(dplyr::ends_with("_mean")) |>
@@ -294,6 +293,21 @@ initialize_pitch_distrib_model <- function(data_standardized, pitch_char_vec) {
     dplyr::select(dplyr::ends_with("_sd")) |>
     as.matrix() |>
     tidyr::replace_na(1)
+
+  # Apply shrinkage to estimated standard deviations
+  # We learned that for subsets of data with tiny samples (e.g. 3-0 curveballs vs RHBs), wacky
+  # estimates of the standard deviations can result in poor initializations of zeta.
+  # In what follows, we use empirical bayes to shrink the estimated standard deviations, assuming
+  # a Normal(1, empirical variance across bsh) prior and a Normal(true value, (n-1)/2) likelihood,
+  # which is based on the chi-square sampling distribution of the sample variance.
+  # https://github.com/saberpowers/predictive-pitch-score/issues/72
+  bsh_sds_var <- matrix(
+    data = apply(bsh_sds, 2, var),
+    nrow = nrow(bsh_sds),
+    ncol = ncol(bsh_sds),
+    byrow = TRUE
+  )
+  bsh_sds_shrunk <- (1 / bsh_sds_var + (bsh_ns - 1) / 2 * bsh_sds) / (1 / bsh_sds_var + (bsh_ns - 1) / 2)
 
   z_scores <- data_standardized_long |>
     dplyr::left_join(pitcher_params, by = c("pitcher_num", "pitch_char")) |>
@@ -337,7 +351,7 @@ initialize_pitch_distrib_model <- function(data_standardized, pitch_char_vec) {
       leagueRho = t(chol(league_corr)),
       Rho = Rho_init,
       lambdanorm = bsh_means[-1, ] * 0.82 / 0.2,
-      zetanorm = (bsh_sds[-1, ] - 1) / 0.1,
+      zetanorm = (bsh_sds_shrunk[-1, ] - 1) / 0.1,
       theta = rep(0, length(pitch_char_vec)),
       kappa = rep(0, length(pitch_char_vec)),
       nunorm = 0.5 * pitcher_nu[-1, ] / 0.05,
