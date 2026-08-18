@@ -18,7 +18,7 @@ simulate_pitch_score(
 \item{n}{integer, number of pitches to simulate}
 
 \item{context}{a dataframe with the following columns:
-\code{bat_side}, \code{pre_balls}, \code{pre_strikes}, \code{strike_zone_top}, \code{strike_zone_bottom}}
+\code{bat_side}, \code{balls}, \code{strikes}, \code{strike_zone_top}, \code{strike_zone_bottom}}
 
 \item{pitch_distrib_model}{a fitted "pitch_distrib_model" object}
 

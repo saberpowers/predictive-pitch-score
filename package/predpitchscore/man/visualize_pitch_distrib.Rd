@@ -11,8 +11,8 @@ visualize_pitch_distrib(
   data = NULL,
   n = 10000,
   bat_side = c("L", "R"),
-  pre_balls = 0,
-  pre_strikes = 0,
+  balls = 0,
+  strikes = 0,
   strike_zone_top = 3.4,
   strike_zone_bottom = 1.6,
   lwd = 4,
@@ -32,9 +32,9 @@ visualize_pitch_distrib(
 
 \item{bat_side}{character, must be "L" or "R"}
 
-\item{pre_balls}{integer, number of balls for context}
+\item{balls}{integer, number of balls for context}
 
-\item{pre_strikes}{integer, number of strikes for context}
+\item{strikes}{integer, number of strikes for context}
 
 \item{strike_zone_top}{numeric, top of strike zone for context}
 

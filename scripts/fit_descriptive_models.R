@@ -1,39 +1,46 @@
 
 devtools::load_all("package/predpitchscore")
 
-year_string <- "2022:2024"
-level <- "mlb"
+# Parse command line options ----
+
+opt_list <- list(
+  optparse::make_option(c("-y", "--year_string"), type = "character", default = "2022:2024"),
+  optparse::make_option(c("-l", "--level"), type = "character", default = "mlb"),
+  optparse::make_option(c("-t", "--tune"), action = "store_true", default = FALSE),
+  optparse::make_option(c("-v", "--verbose"), action = "store_true", default = FALSE)
+)
+opt <- optparse::parse_args(optparse::OptionParser(option_list = opt_list))
+
 models_to_fit <- c("hit_outcome",
   "pitch_swing", "pitch_hbp", "pitch_strike", "pitch_contact", "pitch_fair", "pitch_hit",
   "pitch_value", "pitch_stuff"
 )
-tune <- FALSE
-verbose <- TRUE
+
 
 # Load the data ----
 
-if (verbose) {
+if (opt$verbose) {
   logger::log_info("Loading data")
 }
 
-years <- eval(parse(text = year_string))
+years <- eval(parse(text = opt$year_string))
 pitch <- NULL
 play <- NULL
 event <- NULL
 
 for (year in years) {
-  pitch <- data.table::fread(glue::glue("data/pitch/{level}/{year}.csv")) |>
+  pitch <- data.table::fread(glue::glue("data/pitch/{opt$level}/{year}.csv")) |>
     dplyr::bind_rows(pitch)
-  play <- data.table::fread(glue::glue("data/play/{level}/{year}.csv")) |>
+  play <- data.table::fread(glue::glue("data/play/{opt$level}/{year}.csv")) |>
     dplyr::bind_rows(play)
-  event <- data.table::fread(glue::glue("data/event/{level}/{year}.csv")) |>
+  event <- data.table::fread(glue::glue("data/event/{opt$level}/{year}.csv")) |>
     dplyr::bind_rows(event)
 }
 
 
 # Fit the models ----
 
-if (verbose) {
+if (opt$verbose) {
   logger::log_info("Fitting models")
 }
 
@@ -50,7 +57,7 @@ if ("hit_outcome" %in% models_to_fit) {
     pitch = pitch,
     play = play,
     base_out_run_exp = base_out_run_exp,
-    tune = tune
+    tune = opt$tune
   )
 } else {
   hit_outcome_model <- readRDS("models/hit_outcome_model.rds")
@@ -74,7 +81,7 @@ pitch$true_value <- pitch |>
   compute_pitch_value(count_value = count_value) |>
   with(pitch_value)
 
-if (verbose) {
+if (opt$verbose) {
   logger::log_info("Fitting pitch outcome models")
 }
 
@@ -82,12 +89,12 @@ pitch_outcome_model <- train_pitch_outcome_model(
   pitch = pitch,
   count_value = count_value,
   models_to_fit = models_to_fit,   # the extra non-component elements of models_to_fit are ignored
-  tune = tune
+  tune = opt$tune
 )
 
 if ("pitch_stuff" %in% models_to_fit) {
 
-  if (verbose) {
+  if (opt$verbose) {
     logger::log_info("Fitting stuff model")
   }
 
@@ -104,18 +111,18 @@ if ("pitch_stuff" %in% models_to_fit) {
   stuff_model <- train_stuff_model(
     pitch = pitch,
     pitch_value = pred_pitch$pitch_value,
-    tune = tune
+    tune = opt$tune
   )
 }
 
 
 # Save the models ----
 
-if (verbose) {
+if (opt$verbose) {
   logger::log_info("Saving models")
 }
 
-dir <- glue::glue("models/{level}/{year_string}")
+dir <- glue::glue("models/{opt$level}/{opt$year_string}")
 if (!exists(dir)) {
   dir.create(dir, recursive = TRUE)
 }

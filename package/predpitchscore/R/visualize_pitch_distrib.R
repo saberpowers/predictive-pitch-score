@@ -8,8 +8,8 @@
 #' @param data optional dataframe of individual pitches to plot as circles
 #' @param n number of pitches to sample from the estimated distribution
 #' @param bat_side character, must be "L" or "R"
-#' @param pre_balls integer, number of balls for context
-#' @param pre_strikes integer, number of strikes for context
+#' @param balls integer, number of balls for context
+#' @param strikes integer, number of strikes for context
 #' @param strike_zone_top numeric, top of strike zone for context
 #' @param strike_zone_bottom numeric, bottom of strike zone for context
 #' @param lwd numeric, line width for figure annotations
@@ -24,8 +24,8 @@ visualize_pitch_distrib <- function(model,
                                     data = NULL,
                                     n = 10000,
                                     bat_side = c("L", "R"),
-                                    pre_balls = 0,
-                                    pre_strikes = 0,
+                                    balls = 0,
+                                    strikes = 0,
                                     strike_zone_top = 3.4,
                                     strike_zone_bottom = 1.6,
                                     lwd = 4,
@@ -37,8 +37,8 @@ visualize_pitch_distrib <- function(model,
   # Draw samples from the pitcher's distribution ----
 
   context <- data.frame(
-    pre_balls = pre_balls,
-    pre_strikes = pre_strikes,
+    balls = balls,
+    strikes = strikes,
     bat_side = bat_side,
     strike_zone_top = strike_zone_top,
     strike_zone_bottom = strike_zone_bottom

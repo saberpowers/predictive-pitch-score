@@ -20,19 +20,24 @@ if (opt$parallel) {
   cluster <- parallel::makeCluster(parallel::detectCores())
 }
 
-level <- opt$level
-
 for (year in seq(from = opt$start_year, to = opt$end_year)) {
 
   if (opt$verbose) {
-    logger::log_info("Downloading {year} {level}")
+    logger::log_info("Downloading {year} {opt$level}")
   }
 
-  data <- predpitchscore::extract_season(year = year, level = level, cl = cluster)
-  write.csv(data$event, file = glue::glue("{opt$data_dir}/event/{level}/{year}.csv"), row.names = FALSE)
-  write.csv(data$pitch, file = glue::glue("{opt$data_dir}/pitch/{level}/{year}.csv"), row.names = FALSE)
-  write.csv(data$play, file = glue::glue("{opt$data_dir}/play/{level}/{year}.csv"), row.names = FALSE)
-  write.csv(data$game, file = glue::glue("{opt$data_dir}/game/{level}/{year}.csv"), row.names = FALSE)
+  data <- sabRmetrics::download_statsapi(
+    start_date = glue::glue("{year}-01-01"),
+    end_date = glue::glue("{year}-12-31"),
+    level = opt$level,
+    cl = cluster
+  )
+
+  for (data_type in c("event", "pitch", "play", "game")) {
+    dir <- file.path(opt$data_dir, data_type, opt$level)
+    dir.create(dir, recursive = TRUE, showWarnings = FALSE)
+    data.table::fwrite(data[[data_type]], file = file.path(dir, paste0(year, ".csv")))
+  }
 }
 
 if (opt$parallel) {

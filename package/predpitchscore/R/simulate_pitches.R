@@ -8,7 +8,7 @@
 #' @param pitcher_id integer, ID of pitcher to simulate (must be length-1)
 #' @param n integer, number of pitches to simulate
 #' @param context a dataframe with the following columns:
-#'   `bat_side`, `pre_balls`, `pre_strikes`, `strike_zone_top`, `strike_zone_bottom`
+#'   `bat_side`, `balls`, `strikes`, `strike_zone_top`, `strike_zone_bottom`
 #' 
 #' @return a dataframe of simulated pitch characteristics
 #' 
@@ -66,7 +66,7 @@ simulate_pitches <- function(model, pitcher_id, n, context) {
 
   simmed_context <- context |>
     # Make sure `context` has exactly the columns we need
-    dplyr::select(bat_side, pre_balls, pre_strikes, strike_zone_top, strike_zone_bottom) |>
+    dplyr::select(bat_side, balls, strikes, strike_zone_top, strike_zone_bottom) |>
     # Sample n different contexts with replacement
     dplyr::slice(sample(1:dplyr::n(), size = n, replace = TRUE)) |>
     dplyr::mutate(sim_num = 1:n) |>
@@ -90,7 +90,7 @@ simulate_pitches <- function(model, pitcher_id, n, context) {
     dplyr::left_join(model$pitcher_hand, by = "pitcher_id") |>
     dplyr::mutate(
       same_hand = as.numeric(pitch_hand == bat_side),
-      bsh_num = same_hand * 12 + pre_balls * 3 + pre_strikes + 1
+      bsh_num = same_hand * 12 + balls * 3 + strikes + 1
     ) |>
     dplyr::left_join(pitcher_coef, by = c("pitcher_id", "pitch_char")) |>
     dplyr::left_join(count_coef, by = c("bsh_num", "pitch_char")) |>
@@ -99,8 +99,8 @@ simulate_pitches <- function(model, pitcher_id, n, context) {
     dplyr::mutate(
       mean = mu +                                               # pitcher intercept
         pi * (same_hand - league_params$same_hand_mean) +       # pitcher slope for same_hand
-        nu * (pre_balls - league_params$pre_balls_mean) +       # pitcher slope for pre_balls
-        xi * (pre_strikes - league_params$pre_strikes_mean) +   # pitcher slope for pre_strikes
+        nu * (balls - league_params$balls_mean) +               # pitcher slope for balls
+        xi * (strikes - league_params$strikes_mean) +           # pitcher slope for strikes
         lambda +                                                # count intercept
         theta * (strike_zone_top - league_params$strike_zone_top_mean) / league_params$strike_zone_top_sd +           # slope for strike_zone_top
         kappa * (strike_zone_bottom - league_params$strike_zone_bottom_mean) / league_params$strike_zone_bottom_sd,   # slope for strike_zone_bottom
@@ -114,7 +114,7 @@ simulate_pitches <- function(model, pitcher_id, n, context) {
       # Reverse x-coordinate flipping for LHP
       value = ifelse(pitch_hand == "L" & pitch_char %in% c("ax", "bx", "cx"), -1, 1) * value
     ) |>
-    dplyr::select(sim_num, bat_side, pre_balls, pre_strikes, pitch_char, value, strike_zone_top, strike_zone_bottom) |>
+    dplyr::select(sim_num, bat_side, balls, strikes, pitch_char, value, strike_zone_top, strike_zone_bottom) |>
     tidyr::pivot_wider(names_from = pitch_char, values_from = value)
 
   return(simmed_pitch)

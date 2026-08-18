@@ -6,7 +6,7 @@
 #' @param pitcher_id integer, ID of pitcher to simulate (must be length-1)
 #' @param n integer, number of pitches to simulate
 #' @param context a dataframe with the following columns:
-#'   `bat_side`, `pre_balls`, `pre_strikes`, `strike_zone_top`, `strike_zone_bottom`
+#'   `bat_side`, `balls`, `strikes`, `strike_zone_top`, `strike_zone_bottom`
 #' @param pitch_distrib_model a fitted "pitch_distrib_model" object
 #' @param pitch_outcome_model a fitted "pitch_outcome_model" object
 #' 

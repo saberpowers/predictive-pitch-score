@@ -31,8 +31,8 @@ train_pitch_distrib_model <- function(data,
     dplyr::filter(
       !is.na(extension),
       sqrt(vx0^2 + vy0^2 + vz0^2) >= 70,
-      pre_balls < 4,
-      pre_strikes < 3
+      balls < 4,
+      strikes < 3
     ) |>
     # Filter out pitchers with insufficient pitch counts
     dplyr::group_by(year, pitcher_id) |>
@@ -47,7 +47,7 @@ train_pitch_distrib_model <- function(data,
       bx = ifelse(pitch_hand == "L", -1, 1) * bx,
       cx = ifelse(pitch_hand == "L", -1, 1) * cx,
       same_hand = as.numeric(pitch_hand == bat_side),
-      bsh_num = same_hand * 12 + pre_balls * 3 + pre_strikes + 1
+      bsh_num = same_hand * 12 + balls * 3 + strikes + 1
     )
   
   # Record the hand of each pitcher to be used later when producing simulations
@@ -61,7 +61,7 @@ train_pitch_distrib_model <- function(data,
       dplyr::across(
         .cols = dplyr::all_of(
           c(pitch_char_vec,
-            "pre_balls", "pre_strikes", "same_hand", "strike_zone_top", "strike_zone_bottom"
+            "balls", "strikes", "same_hand", "strike_zone_top", "strike_zone_bottom"
           )
         ),
         .fns = list(mean = mean, sd = sd)
@@ -76,7 +76,7 @@ train_pitch_distrib_model <- function(data,
         .fns = ~ (. - mean(.)) / sd(.)
       ),
       dplyr::across(
-        .cols = c(pre_balls, pre_strikes, same_hand),
+        .cols = c(balls, strikes, same_hand),
         .fns = ~ . - mean(.)
       )
     )
@@ -110,8 +110,8 @@ train_pitch_distrib_model <- function(data,
       v = pitch_trajectory_coefficients,
       sz_top = strike_zone_top,
       sz_bottom = strike_zone_bottom,
-      balls = pre_balls,
-      strikes = pre_strikes,
+      balls = balls,
+      strikes = strikes,
       hand = same_hand,
       bsh = bsh_num,
       p = pitcher_num,
@@ -192,7 +192,7 @@ initialize_pitch_distrib_model <- function(data_standardized, pitch_char_vec) {
 
   data_standardized_long <- data_standardized |>
     dplyr::select(
-      play_id, pitcher_num, bsh_num, pre_balls, pre_strikes, same_hand,
+      play_id, pitcher_num, bsh_num, balls, strikes, same_hand,
       dplyr::all_of(pitch_char_vec)
     ) |>
     tidyr::pivot_longer(cols = dplyr::all_of(pitch_char_vec), names_to = "pitch_char")
@@ -203,8 +203,8 @@ initialize_pitch_distrib_model <- function(data_standardized, pitch_char_vec) {
       n = dplyr::n(),
       mean = mean(value),
       sd = tidyr::replace_na(sd(value), 0.5),
-      nu = tidyr::replace_na(cov(value, pre_balls) / (0.001 + var(pre_balls)), 0),
-      xi = tidyr::replace_na(cov(value, pre_strikes)/ (0.001 + var(pre_strikes)), 0),
+      nu = tidyr::replace_na(cov(value, balls) / (0.001 + var(balls)), 0),
+      xi = tidyr::replace_na(cov(value, strikes)/ (0.001 + var(strikes)), 0),
       pi = tidyr::replace_na(cov(value, same_hand) / (0.001 + var(same_hand)), 0),
       .groups = "drop"
     ) |>
@@ -262,29 +262,28 @@ initialize_pitch_distrib_model <- function(data_standardized, pitch_char_vec) {
     dplyr::select(dplyr::all_of(pitch_char_vec)) |>
     as.matrix()
 
-  bsh_params <- data_standardized |>
+  bsh_params_raw <- data_standardized |>
     dplyr::group_by(bsh_num) |>
     dplyr::summarize(
-      dplyr::across(
-        .cols = dplyr::all_of(pitch_char_vec),
-        .fns = list(mean = mean, sd = sd)
-      )
+      dplyr::across(dplyr::all_of(pitch_char_vec), list(mean = mean, sd = sd, n = length)),
+      .groups = "drop"
     )
 
-  # Fill in any missing bsh_params
-  full_bsh_params <- bsh_params
-  for (i in 1:24) {
-    row <- bsh_params |>
-      dplyr::filter(bsh_num == i)
-    if (length(row$bsh_num) == 1) {
-      full_bsh_params[i,  ] <- row
-    } else {
-      full_bsh_params[i, 1] <- i
-      full_bsh_params[i, 2:10] <- 0
-      full_bsh_params[i, 11:19] <- 1
-    }
-  }
-  bsh_params <- full_bsh_params
+  # It's possible that some *rows* are missing from bsh_params, so we need to identify those
+  # missing rows and replace them with placeholder values
+  bsh_params <- bsh_params_raw |>
+    dplyr::mutate(
+      bsh_num = 1:dplyr::n(),
+      dplyr::across(dplyr::ends_with("_n"), \(x) 1),
+      dplyr::across(dplyr::ends_with("_mean"), \(x) 0),
+      dplyr::across(dplyr::ends_with("_sd"), \(x) 1)
+    )
+  bsh_params[bsh_params$bsh_num, ] <- bsh_params_raw
+  
+  bsh_ns <- bsh_params |>
+    dplyr::select(dplyr::ends_with("_n")) |>
+    as.matrix() |>
+    tidyr::replace_na(1)
   
   bsh_means <- bsh_params |>
     dplyr::select(dplyr::ends_with("_mean")) |>
@@ -294,6 +293,21 @@ initialize_pitch_distrib_model <- function(data_standardized, pitch_char_vec) {
     dplyr::select(dplyr::ends_with("_sd")) |>
     as.matrix() |>
     tidyr::replace_na(1)
+
+  # Apply shrinkage to estimated standard deviations
+  # We learned that for subsets of data with tiny samples (e.g. 3-0 curveballs vs RHBs), wacky
+  # estimates of the standard deviations can result in poor initializations of zeta.
+  # In what follows, we use empirical bayes to shrink the estimated standard deviations, assuming
+  # a Normal(1, empirical variance across bsh) prior and a Normal(true value, (n-1)/2) likelihood,
+  # which is based on the chi-square sampling distribution of the sample variance.
+  # https://github.com/saberpowers/predictive-pitch-score/issues/72
+  bsh_sds_var <- matrix(
+    data = apply(bsh_sds, 2, var),
+    nrow = nrow(bsh_sds),
+    ncol = ncol(bsh_sds),
+    byrow = TRUE
+  )
+  bsh_sds_shrunk <- (1 / bsh_sds_var + (bsh_ns - 1) / 2 * bsh_sds) / (1 / bsh_sds_var + (bsh_ns - 1) / 2)
 
   z_scores <- data_standardized_long |>
     dplyr::left_join(pitcher_params, by = c("pitcher_num", "pitch_char")) |>
@@ -337,7 +351,7 @@ initialize_pitch_distrib_model <- function(data_standardized, pitch_char_vec) {
       leagueRho = t(chol(league_corr)),
       Rho = Rho_init,
       lambdanorm = bsh_means[-1, ] * 0.82 / 0.2,
-      zetanorm = (bsh_sds[-1, ] - 1) / 0.1,
+      zetanorm = (bsh_sds_shrunk[-1, ] - 1) / 0.1,
       theta = rep(0, length(pitch_char_vec)),
       kappa = rep(0, length(pitch_char_vec)),
       nunorm = 0.5 * pitcher_nu[-1, ] / 0.05,
