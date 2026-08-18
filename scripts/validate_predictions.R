@@ -23,14 +23,24 @@ leaderboard_with_noise_var <- leaderboard |>
   dplyr::ungroup()
 
 pop_distrib <- leaderboard_with_noise_var |>
+  dplyr::filter(!(year == 2021 & pitch_type == "SL")) |>
   dplyr::group_by(year, pitch_type) |>
   dplyr::summarize(
     desc_pop_mean = weighted.mean(desc, w = 1 / desc_noise_var),
-    desc_pop_var = estimate_population_variance(observed_value = desc, noise_variance = desc_noise_var),
+    desc_pop_var = predpitchscore::estimate_population_variance(
+      observed_value = desc,
+      noise_variance = desc_noise_var
+    ),
     stuff_pop_mean = weighted.mean(stuff, w = 1 / stuff_noise_var),
-    stuff_pop_var = estimate_population_variance(observed_value = stuff, noise_variance = stuff_noise_var),
+    stuff_pop_var = predpitchscore::estimate_population_variance(
+      observed_value = stuff,
+      noise_variance = stuff_noise_var
+    ),
     diff_pop_mean = weighted.mean(desc - stuff, w = 1 / diff_noise_var),
-    diff_pop_var = estimate_population_variance(observed_value = desc - stuff, noise_variance = diff_noise_var),
+    diff_pop_var = predpitchscore::estimate_population_variance(
+      observed_value = desc - stuff,
+      noise_variance = diff_noise_var
+    ),
     .groups = "drop"
   )
 
@@ -89,6 +99,7 @@ cor_by_pitch_type <- data |>
     .groups = "drop"
   )
 
-
-write.csv(cor_overall, file = "output/validation/cor_overall.csv", row.names = FALSE)
-write.csv(cor_by_sample_size, file = "output/validation/cor_by_sample_size.csv", row.names = FALSE)
+output_dir <- file.path("output", "validation")
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+data.table::fwrite(cor_overall, file = file.path(output_dir, "cor_overall.csv"))
+data.table::fwrite(cor_by_sample_size, file = file.path(output_dir, "cor_by_sample_size.csv"))

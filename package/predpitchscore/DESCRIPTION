@@ -26,5 +26,6 @@ Suggests:
   logger,
   optparse,
   parallel,
+  weights,
   sabRmetrics,
   xgboost

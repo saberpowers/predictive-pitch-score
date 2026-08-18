@@ -61,9 +61,14 @@ for (ts in training_samples) {
       logger::log_info("Simulating {ts} {pt} predictive pitch scores")
     }
 
-    pitch_distrib_model <- readRDS(
-      glue::glue("models/distribution/{opt$model_version}/{pt}/{ts}.rds")
-    )
+    pitch_distrib_model <- readRDS(glue::glue("models/distribution/{opt$model_version}/{pt}/{ts}.rds"))
+    if (!"map" %in% names(pitch_distrib_model)) {
+      pitch_distrib_model$map <- list()   # maximum a posteriori parameter estimates
+      for (parameter in pitch_distrib_model$cmdstan_fit$metadata()$stan_variables) {
+        pitch_distrib_model$map[[parameter]] <- pitch_distrib_model$cmdstan_fit$draws(parameter)
+      }
+      saveRDS(pitch_distrib_model, file = glue::glue("models/distribution/{version}/{pt}/{ts}.rds"))
+    }
 
     context <- data |>
       dplyr::filter(training_sample == ts, pitch_type == pt)
