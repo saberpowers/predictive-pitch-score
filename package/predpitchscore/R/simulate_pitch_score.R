@@ -28,7 +28,9 @@ simulate_pitch_score <- function(pitcher_id, n, context, pitch_distrib_model, pi
 
   pred <- predict(
     object = pitch_outcome_model,
-    newpitch = simmed_pitch
+    newpitch = simmed_pitch |>
+      get_trackman_metrics() |>
+      dplyr::mutate(balls = pre_balls, strikes = pre_strikes)
   )
 
 # NOTE (SP): I'm removing additional columns for now and limiting to pitch_value for simplicity

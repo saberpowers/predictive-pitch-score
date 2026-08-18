@@ -20,7 +20,10 @@ Imports:
   tidyr,
   viridis
 Suggests:
+  future,
+  future.apply,
   logger,
   optparse,
   parallel,
+  weights,
   xgboost

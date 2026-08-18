@@ -1,15 +1,15 @@
 
 devtools::load_all("package/predpitchscore")
 
-year <- 2022
+year <- 2021
 split_even_odd <- TRUE
-version <- "conditional"
+version <- "complete"
 verbose <- TRUE
 
 # Load data and models ----
 
-pitch <- data.table::fread(glue::glue("data/pitch/{year}.csv"))
-event <- data.table::fread(glue::glue("data/event/{year}.csv"))
+pitch <- data.table::fread(glue::glue("data/pitch/mlb/{year}.csv"))
+event <- data.table::fread(glue::glue("data/event/mlb/{year}.csv"))
 
 data <- pitch |>
   dplyr::left_join(event, by = c("year", "game_id", "event_index")) |>
@@ -56,6 +56,13 @@ for (ts in training_samples) {
     }
 
     pitch_distrib_model <- readRDS(glue::glue("models/distribution/{version}/{pt}/{ts}.rds"))
+    if (!"map" %in% names(pitch_distrib_model)) {
+      pitch_distrib_model$map <- list()   # maximum a posteriori parameter estimates
+      for (parameter in pitch_distrib_model$cmdstan_fit$metadata()$stan_variables) {
+        pitch_distrib_model$map[[parameter]] <- pitch_distrib_model$cmdstan_fit$draws(parameter)
+      }
+      saveRDS(pitch_distrib_model, file = glue::glue("models/distribution/{version}/{pt}/{ts}.rds"))
+    }
 
     context <- data |>
       dplyr::filter(training_sample == ts, pitch_type == pt)
