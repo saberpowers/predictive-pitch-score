@@ -86,14 +86,17 @@ train_hit_outcome_model <- function(pitch, play, base_out_run_exp, tune = FALSE)
     nrounds <- config_hit_outcome_xgb$nrounds
   }
 
-  model <- xgboost::xgb.train(
+  model <- list()
+
+  model$xgb <- xgboost::xgb.train(
     params = params,
     data = xgboost::xgb.DMatrix(covariate_matrix, label = data$exp_runs_diff),
     nrounds = nrounds,
     verbose = 0
-  )
+  ) |>
+    xgboost::xgb.save.raw()
 
-  model$pred <- predict(model, newdata = covariate_matrix)
+  model$pred <- predict(xgboost::xgb.load.raw(model$xgb), newdata = covariate_matrix)
 
   if (tune) {
     model$cv_result <- cv_result
